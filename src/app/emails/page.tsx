@@ -12,6 +12,10 @@ import {
   RefreshCw,
   Eye,
   X,
+  Archive,
+  Trash2,
+  CheckCheck,
+  Reply,
 } from "lucide-react";
 import { Modal } from "@/components/modal";
 import { apiFetch } from "@/lib/api";
@@ -153,7 +157,7 @@ const aliases = [
   "sedarplus@coreconx.group",
 ];
 
-const tabs = ["Campaign", "Templates", "Sent", "Legal Docs"] as const;
+const tabs = ["Campaign", "Templates", "Inbox", "Sent", "Legal Docs"] as const;
 type Tab = typeof tabs[number];
 
 const legalDocs = [
@@ -203,6 +207,88 @@ export default function EmailsPage() {
   const [selectedThread, setSelectedThread] = useState<GmailThreadDetail | null>(null);
   const [loadingThread, setLoadingThread] = useState(false);
   const [refreshingSent, setRefreshingSent] = useState(false);
+  const [refreshingInbox, setRefreshingInbox] = useState(false);
+  const [actionLoading, setActionLoading] = useState<Record<string, string>>({});
+  const [inboxAliasFilter, setInboxAliasFilter] = useState<string>("all");
+  const [drafts, setDrafts] = useState<Array<{ id: string; to: string; subject: string; body: string; from?: string }>>([]);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
+  const [draftActionLoading, setDraftActionLoading] = useState<Record<string, string>>({});
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [replyTo, setReplyTo] = useState("");
+  const [replySubject, setReplySubject] = useState("");
+  const [replyBody, setReplyBody] = useState("");
+  const [replyFrom, setReplyFrom] = useState("chuck@coreconx.group");
+  const [replyMessageId, setReplyMessageId] = useState<string | undefined>();
+  const [savingDraft, setSavingDraft] = useState(false);
+
+  const fetchDrafts = async () => {
+    setLoadingDrafts(true);
+    const data = await apiFetch<{ drafts?: Array<{ id: string; to: string; subject: string; body: string; from?: string }> }>("/api/emails/drafts");
+    if (data?.drafts && Array.isArray(data.drafts)) setDrafts(data.drafts);
+    else if (data && Array.isArray(data)) setDrafts(data as unknown as typeof drafts);
+    setLoadingDrafts(false);
+  };
+
+  const approveDraft = async (draftId: string) => {
+    setDraftActionLoading((prev) => ({ ...prev, [draftId]: "approve" }));
+    await apiFetch(`/api/emails/draft/${draftId}/send`, { method: "POST" });
+    setDrafts((prev) => prev.filter((d) => d.id !== draftId));
+    setDraftActionLoading((prev) => { const next = { ...prev }; delete next[draftId]; return next; });
+  };
+
+  const deleteDraft = async (draftId: string) => {
+    setDraftActionLoading((prev) => ({ ...prev, [draftId]: "delete" }));
+    await apiFetch(`/api/emails/draft/${draftId}`, { method: "DELETE" });
+    setDrafts((prev) => prev.filter((d) => d.id !== draftId));
+    setDraftActionLoading((prev) => { const next = { ...prev }; delete next[draftId]; return next; });
+  };
+
+  const saveDraftReply = async () => {
+    if (!replyTo || !replySubject || !replyBody) return;
+    setSavingDraft(true);
+    await apiFetch("/api/emails/draft", {
+      method: "POST",
+      body: JSON.stringify({
+        to: replyTo,
+        subject: replySubject,
+        body: replyBody,
+        from: replyFrom,
+        replyToMessageId: replyMessageId,
+      }),
+    });
+    setSavingDraft(false);
+    setShowReplyForm(false);
+    setReplyTo("");
+    setReplySubject("");
+    setReplyBody("");
+    setReplyMessageId(undefined);
+    await fetchDrafts();
+  };
+
+  const openReplyForm = (msg: { from?: string; subject?: string; id?: string }) => {
+    setReplyTo(msg.from || "");
+    setReplySubject(msg.subject?.startsWith("Re:") ? msg.subject : `Re: ${msg.subject || ""}`);
+    setReplyBody("");
+    setReplyMessageId(msg.id);
+    setShowReplyForm(true);
+  };
+
+  const emailAction = async (messageId: string, action: "archive" | "mark-read" | "trash") => {
+    setActionLoading((prev) => ({ ...prev, [messageId]: action }));
+    await apiFetch(`/api/emails/${action}/${messageId}`, { method: "POST" });
+    setInboxEmails((prev) => prev.filter((e) => e.id !== messageId));
+    setActionLoading((prev) => {
+      const next = { ...prev };
+      delete next[messageId];
+      return next;
+    });
+  };
+
+  const refreshInbox = async () => {
+    setRefreshingInbox(true);
+    await fetchInbox();
+    setRefreshingInbox(false);
+  };
 
   const fetchSent = async () => {
     setLoadingSent(true);
@@ -237,6 +323,7 @@ export default function EmailsPage() {
   useEffect(() => {
     fetchSent();
     fetchInbox();
+    fetchDrafts();
     setLoadingTemplates(true);
     apiFetch<TemplateCategory[]>("/api/templates").then((data) => {
       if (data && Array.isArray(data)) setTemplateCategories(data);
@@ -602,6 +689,186 @@ export default function EmailsPage() {
         </div>
       )}
 
+      {/* Inbox Tab */}
+      {activeTab === "Inbox" && (
+        <div className="space-y-4">
+          {/* Alias filter bar */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setInboxAliasFilter("all")}
+              className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+                inboxAliasFilter === "all"
+                  ? "bg-coreconx text-white"
+                  : "bg-card border border-border text-muted hover:text-foreground"
+              }`}
+            >
+              All ({inboxEmails.length})
+            </button>
+            {aliases.map((alias) => {
+              const count = inboxEmails.filter((e) => e.to?.includes(alias.split("@")[0])).length;
+              if (count === 0) return null;
+              return (
+                <button
+                  key={alias}
+                  onClick={() => setInboxAliasFilter(alias)}
+                  className={`text-xs px-3 py-1.5 rounded-full font-mono transition-colors ${
+                    inboxAliasFilter === alias
+                      ? "bg-coreconx text-white"
+                      : "bg-card border border-border text-muted hover:text-foreground"
+                  }`}
+                >
+                  {alias.split("@")[0]} ({count})
+                </button>
+              );
+            })}
+            <button
+              onClick={refreshInbox}
+              disabled={refreshingInbox}
+              className="ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-card border border-border text-muted hover:text-foreground transition-colors"
+            >
+              <RefreshCw size={12} className={refreshingInbox ? "animate-spin" : ""} />
+              Refresh
+            </button>
+          </div>
+
+          {/* Drafts Section */}
+          {drafts.length > 0 && (
+            <div className="bg-card border border-coreconx/30 rounded-xl p-5">
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <FileText size={18} className="text-coreconx-light" />
+                Drafts ({drafts.length})
+              </h2>
+              <p className="text-xs text-muted mt-1">Review and approve or delete pending drafts</p>
+              <div className="mt-4 space-y-2">
+                {drafts.map((draft) => (
+                  <div
+                    key={draft.id}
+                    className="flex items-center gap-4 p-3 rounded-lg border border-border bg-background"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{draft.subject || "(no subject)"}</p>
+                      <p className="text-xs text-muted truncate">To: {draft.to || "—"}{draft.from ? ` · From: ${draft.from}` : ""}</p>
+                      <p className="text-xs text-muted/70 mt-1 truncate">{draft.body?.slice(0, 120) || "(no body)"}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => approveDraft(draft.id)}
+                        disabled={!!draftActionLoading[draft.id]}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success/20 text-success text-xs font-medium hover:bg-success/30 transition-colors disabled:opacity-50"
+                      >
+                        {draftActionLoading[draft.id] === "approve" ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <CheckCheck size={12} />
+                        )}
+                        Approve & Send
+                      </button>
+                      <button
+                        onClick={() => deleteDraft(draft.id)}
+                        disabled={!!draftActionLoading[draft.id]}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error/20 text-error text-xs font-medium hover:bg-error/30 transition-colors disabled:opacity-50"
+                      >
+                        {draftActionLoading[draft.id] === "delete" ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={12} />
+                        )}
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Inbox Emails */}
+          <div className="bg-card border border-border rounded-xl p-5">
+            <h2 className="text-lg font-semibold text-foreground">Inbox</h2>
+            <p className="text-xs text-muted mt-1">Live from Gmail — all incoming emails across CoreConX aliases</p>
+            {loadingInbox ? (
+              <div className="mt-8 text-center py-12">
+                <Loader2 size={32} className="mx-auto text-muted animate-spin" />
+                <p className="text-muted mt-4">Loading inbox...</p>
+              </div>
+            ) : inboxEmails.length === 0 ? (
+              <div className="mt-8 text-center py-12">
+                <Inbox size={40} className="mx-auto text-muted/30" />
+                <p className="text-muted mt-4">Inbox is empty</p>
+                <p className="text-xs text-muted mt-1">New emails will appear here automatically</p>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-2">
+                {inboxEmails
+                  .filter((e) => inboxAliasFilter === "all" || e.to?.includes(inboxAliasFilter.split("@")[0]))
+                  .map((email, i) => (
+                  <div
+                    key={email.id || i}
+                    className="flex items-center gap-4 p-3 rounded-lg border border-border bg-background hover:border-coreconx/40 transition-colors"
+                  >
+                    <button
+                      onClick={() => email.id && openThread(email.id)}
+                      className="flex-1 min-w-0 text-left cursor-pointer"
+                    >
+                      <p className="text-sm font-medium text-foreground truncate">{email.subject || "(no subject)"}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-xs text-muted truncate">From: {email.from || "—"}</p>
+                        {email.to && <p className="text-xs text-muted truncate">To: {email.to}</p>}
+                        {email.messageCount && email.messageCount > 1 && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-card-hover text-muted">{email.messageCount} msgs</span>
+                        )}
+                      </div>
+                      {email.snippet && (
+                        <p className="text-xs text-muted/70 mt-1 truncate">{email.snippet}</p>
+                      )}
+                    </button>
+                    <span className="text-xs text-muted whitespace-nowrap">{email.date || "—"}</span>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button
+                        onClick={() => email.id && emailAction(email.id, "archive")}
+                        disabled={!!actionLoading[email.id || ""]}
+                        title="Archive"
+                        className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-card-hover transition-colors disabled:opacity-50"
+                      >
+                        {actionLoading[email.id || ""] === "archive" ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Archive size={14} />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => email.id && emailAction(email.id, "mark-read")}
+                        disabled={!!actionLoading[email.id || ""]}
+                        title="Mark as read"
+                        className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-card-hover transition-colors disabled:opacity-50"
+                      >
+                        {actionLoading[email.id || ""] === "mark-read" ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Eye size={14} />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => email.id && emailAction(email.id, "trash")}
+                        disabled={!!actionLoading[email.id || ""]}
+                        title="Trash"
+                        className="p-1.5 rounded-lg text-muted hover:text-error hover:bg-error/10 transition-colors disabled:opacity-50"
+                      >
+                        {actionLoading[email.id || ""] === "trash" ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={14} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Thread Detail Modal */}
       <Modal
         open={!!selectedThread || loadingThread}
@@ -633,6 +900,90 @@ export default function EmailsPage() {
                 </div>
               </div>
             ))}
+
+            {/* Draft Reply Button */}
+            {!showReplyForm && selectedThread.messages.length > 0 && (
+              <button
+                onClick={() => openReplyForm(selectedThread.messages![selectedThread.messages!.length - 1])}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-coreconx text-white text-sm font-medium hover:bg-coreconx/90 transition-colors"
+              >
+                <Reply size={14} />
+                Draft Reply
+              </button>
+            )}
+
+            {/* Draft Reply Form (COR-21) */}
+            {showReplyForm && (
+              <div className="bg-background rounded-lg border border-coreconx/40 overflow-hidden">
+                <div className="px-4 py-3 border-b border-border bg-card-hover/50 flex items-center justify-between">
+                  <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <Reply size={14} className="text-coreconx-light" />
+                    Draft Reply
+                  </span>
+                  <button onClick={() => setShowReplyForm(false)} className="text-muted hover:text-foreground">
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted block mb-1">To</label>
+                      <input
+                        value={replyTo}
+                        onChange={(e) => setReplyTo(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted block mb-1">From</label>
+                      <select
+                        value={replyFrom}
+                        onChange={(e) => setReplyFrom(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx"
+                      >
+                        {aliases.map((a) => (
+                          <option key={a} value={a}>{a}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted block mb-1">Subject</label>
+                    <input
+                      value={replySubject}
+                      onChange={(e) => setReplySubject(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted block mb-1">Body</label>
+                    <textarea
+                      value={replyBody}
+                      onChange={(e) => setReplyBody(e.target.value)}
+                      rows={6}
+                      className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx resize-y"
+                      placeholder="Write your reply..."
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setShowReplyForm(false)}
+                      className="px-4 py-2 text-sm text-muted hover:text-foreground transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={saveDraftReply}
+                      disabled={savingDraft || !replyTo || !replyBody}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-coreconx text-white text-sm font-medium hover:bg-coreconx/90 transition-colors disabled:opacity-50"
+                    >
+                      {savingDraft ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+                      Save as Draft
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <p className="text-muted text-sm">No messages found in this thread.</p>
