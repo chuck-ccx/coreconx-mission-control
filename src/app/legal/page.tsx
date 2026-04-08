@@ -275,7 +275,7 @@ export default function LegalPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: "Total Docs", value: 21 },
           { label: "Live", value: legalDocs.filter((d) => d.status === "Live").length },
@@ -290,7 +290,7 @@ export default function LegalPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input
@@ -301,12 +301,12 @@ export default function LegalPage() {
             className="w-full bg-background border border-border rounded-lg pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:border-coreconx-light"
           />
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1 overflow-x-auto">
           {phases.map((phase) => (
             <button
               key={phase}
               onClick={() => setFilterPhase(phase)}
-              className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+              className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                 filterPhase === phase
                   ? "bg-coreconx text-white"
                   : "bg-card border border-border text-muted hover:text-foreground"

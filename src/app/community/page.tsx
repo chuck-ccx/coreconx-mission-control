@@ -77,7 +77,7 @@ export default function CommunityPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
             label: "Founding Partners",
@@ -125,7 +125,7 @@ export default function CommunityPage() {
         <h2 className="text-lg font-semibold text-foreground">
           The Founding Partner Deal
         </h2>
-        <div className="mt-3 grid grid-cols-2 gap-4">
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <h3 className="text-sm font-medium text-foreground">
               What they get:

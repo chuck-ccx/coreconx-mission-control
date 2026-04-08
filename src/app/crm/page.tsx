@@ -72,20 +72,20 @@ export default function CRMPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
             <Users size={24} className="text-coreconx-light" />
             CRM
           </h1>
-          <p className="text-muted text-sm mt-1">
+          <p className="text-muted text-xs sm:text-sm mt-1">
             {loading
               ? "Loading live data..."
-              : `${companies.length} diamond drilling companies — live from Google Sheets`}
+              : `${companies.length} drilling companies — live from Sheets`}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-initial">
             <Search
               size={16}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
@@ -95,23 +95,24 @@ export default function CRMPage() {
               placeholder="Search companies..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="bg-background border border-border rounded-lg pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:border-coreconx-light"
+              className="w-full bg-background border border-border rounded-lg pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:border-coreconx-light"
             />
           </div>
           <a
             href="https://docs.google.com/spreadsheets/d/1arbZpTV9DSVS8w-4FA8XhV59x_DWxpGIP1dI5vxX3ak/edit"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2 bg-coreconx text-white rounded-lg text-sm hover:bg-coreconx-light transition-colors"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-coreconx text-white rounded-lg text-sm hover:bg-coreconx-light transition-colors whitespace-nowrap"
           >
             <ExternalLink size={14} />
-            Open Sheet
+            <span className="hidden sm:inline">Open Sheet</span>
+            <span className="sm:hidden">Sheet</span>
           </a>
         </div>
       </div>
 
       {/* Stats bar */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         {[
           { label: "Total Companies", value: companies.length },
           { label: "With Direct Email", value: withEmail.length },
@@ -146,8 +147,8 @@ export default function CRMPage() {
       </div>
 
       {/* Company Table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <table className="w-full">
+      <div className="bg-card border border-border rounded-xl overflow-x-auto">
+        <table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-border bg-coreconx-dark/30">
               <th className="text-left text-xs font-medium text-muted px-5 py-3">

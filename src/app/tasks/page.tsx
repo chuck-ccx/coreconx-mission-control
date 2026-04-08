@@ -200,9 +200,9 @@ export default function TasksPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
             <CheckSquare size={24} className="text-coreconx-light" />
             Task Board
           </h1>
@@ -228,7 +228,7 @@ export default function TasksPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {columns.map(col => {
           const count = issuesByColumn(col.id).length;
           return (
@@ -244,11 +244,11 @@ export default function TasksPage() {
       </div>
 
       {/* Kanban Board */}
-      <div className="grid grid-cols-4 gap-4 min-h-[500px]">
+      <div className="flex md:grid md:grid-cols-4 gap-4 min-h-[500px] overflow-x-auto pb-4 snap-x snap-mandatory md:snap-none md:overflow-visible">
         {columns.map(col => {
           const colIssues = issuesByColumn(col.id);
           return (
-            <div key={col.id} className="space-y-3">
+            <div key={col.id} className="min-w-[280px] md:min-w-0 snap-start space-y-3">
               <div className="flex items-center gap-2 px-1">
                 <col.icon size={16} className={col.color} />
                 <h3 className="text-sm font-medium text-foreground">{col.label}</h3>
@@ -450,7 +450,7 @@ export default function TasksPage() {
             {/* Move Task */}
             <div className="bg-background rounded-lg p-4 border border-border">
               <h4 className="text-xs font-medium text-muted mb-3">Move to</h4>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {columns.map(col => {
                   const currentCol = selectedIssue.state ? mapStateToColumn(selectedIssue.state.type) : "backlog";
                   const isCurrent = col.id === currentCol;
@@ -489,7 +489,7 @@ export default function TasksPage() {
             {/* Approve & Delete Actions */}
             <div className="bg-background rounded-lg p-4 border border-border">
               <h4 className="text-xs font-medium text-muted mb-3">Actions</h4>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <button
                   onClick={() => approveTask(selectedIssue)}
                   disabled={approving === selectedIssue.id}

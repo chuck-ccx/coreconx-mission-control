@@ -68,16 +68,16 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted text-sm mt-1">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted text-xs sm:text-sm mt-1 truncate">
             CoreConX Mission Control — overview of everything happening
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <div
             className={`w-2 h-2 rounded-full ${
               apiOnline ? "bg-success" : "bg-danger"

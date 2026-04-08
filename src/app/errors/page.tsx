@@ -111,9 +111,9 @@ export default function ErrorsPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">
             Errors & Diagnostics
           </h1>
           <p className="text-muted text-sm mt-1">
@@ -136,7 +136,7 @@ export default function ErrorsPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs text-muted">Active Errors</p>
           <p className={`text-2xl font-bold mt-1 ${activeErrors > 0 ? "text-danger" : "text-success"}`}>
@@ -164,13 +164,13 @@ export default function ErrorsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-2">
-        <Filter size={14} className="text-muted" />
+      <div className="flex items-center gap-2 overflow-x-auto">
+        <Filter size={14} className="text-muted shrink-0" />
         {["all", "active", "error", "warning", "info", "resolved"].map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
               filter === f
                 ? "bg-coreconx text-white"
                 : "bg-card border border-border text-muted hover:text-foreground"

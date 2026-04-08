@@ -333,22 +333,22 @@ export default function EmailsPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
             <Mail size={24} className="text-coreconx-light" />
             Email Hub
           </h1>
-          <p className="text-muted text-sm mt-1">
+          <p className="text-muted text-xs sm:text-sm mt-1">
             Campaigns, templates, sent emails, and legal documents
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 shrink-0">
           <a
             href="https://docs.google.com/spreadsheets/d/1arbZpTV9DSVS8w-4FA8XhV59x_DWxpGIP1dI5vxX3ak/edit"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-foreground rounded-lg text-sm hover:bg-card-hover transition-colors"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-card border border-border text-foreground rounded-lg text-sm hover:bg-card-hover transition-colors"
           >
             <ExternalLink size={14} />
             CRM Sheet
@@ -357,7 +357,7 @@ export default function EmailsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         {[
           {
             label: "Emails Sent",
@@ -401,20 +401,22 @@ export default function EmailsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-card border border-border rounded-xl p-1">
-        {tabs.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === tab
-                ? "bg-coreconx text-white"
-                : "text-muted hover:text-foreground hover:bg-card-hover"
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
+      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="flex gap-1 bg-card border border-border rounded-xl p-1 min-w-max sm:min-w-0">
+          {tabs.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap sm:flex-1 ${
+                activeTab === tab
+                  ? "bg-coreconx text-white"
+                  : "text-muted hover:text-foreground hover:bg-card-hover"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Campaign Tab */}
@@ -446,13 +448,13 @@ export default function EmailsPage() {
                       {email.day}
                     </span>
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-medium text-foreground">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-sm font-medium text-foreground shrink-0">
                         {email.name}
                       </h3>
-                      <ArrowRight size={12} className="text-muted" />
-                      <span className="text-xs text-muted italic">
+                      <ArrowRight size={12} className="text-muted shrink-0" />
+                      <span className="text-xs text-muted italic truncate min-w-0">
                         &quot;{email.subject}&quot;
                       </span>
                     </div>
@@ -570,7 +572,7 @@ export default function EmailsPage() {
 
                               {/* A/B Variations */}
                               {(tpl.variationA || tpl.variationB) && (
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   {tpl.variationA && (
                                     <div className="bg-background rounded-lg border border-border p-3">
                                       <p className="text-xs font-medium text-coreconx-light mb-1">Variation A</p>

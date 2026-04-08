@@ -87,11 +87,11 @@ export default function AgentsPage() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
           <Bot size={24} className="text-coreconx-light" />
           Agents & Stack
         </h1>
-        <p className="text-muted text-sm mt-1">
+        <p className="text-muted text-xs sm:text-sm mt-1">
           Who&apos;s working, what they&apos;re running on, and the tools behind CoreConX
         </p>
       </div>
@@ -157,15 +157,15 @@ export default function AgentsPage() {
 
       {/* Live Service Status */}
       <div className="bg-card border border-border rounded-xl p-5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <h2 className="text-lg font-semibold text-foreground">Service Status</h2>
           {loading ? (
             <Loader2 size={16} className="text-muted animate-spin" />
           ) : apiStatus ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Wifi size={14} className="text-success" />
               <span className="text-xs text-success font-medium">API Online</span>
-              <span className="text-xs text-muted">— {formatUptime(apiStatus.uptime)} uptime, {apiStatus.memory}</span>
+              <span className="text-xs text-muted hidden sm:inline">— {formatUptime(apiStatus.uptime)} uptime, {apiStatus.memory}</span>
             </div>
           ) : (
             <div className="flex items-center gap-2">
@@ -175,7 +175,7 @@ export default function AgentsPage() {
           )}
         </div>
         {apiStatus && (
-          <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
             {Object.entries(apiStatus.services).map(([name, status]) => (
               <div key={name} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background">
                 <div className={`w-2.5 h-2.5 rounded-full ${status === "connected" ? "bg-success" : "bg-danger"}`} />
