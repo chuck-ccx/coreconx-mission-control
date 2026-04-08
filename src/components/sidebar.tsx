@@ -12,13 +12,17 @@ import {
   MessageSquare,
   Shield,
   AlertTriangle,
+  FileText,
+  LogOut,
 } from "lucide-react";
+import { useAuth } from "@/components/auth-guard";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/crm", label: "CRM", icon: Users },
   { href: "/emails", label: "Emails", icon: Mail },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
+  { href: "/legal", label: "Legal Docs", icon: FileText },
   { href: "/agents", label: "Agents", icon: Bot },
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/community", label: "Community", icon: MessageSquare },
@@ -28,12 +32,13 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { logout } = useAuth();
 
   return (
     <aside className="fixed left-0 top-0 h-full w-64 bg-card border-r border-border flex flex-col z-50">
       {/* Logo */}
       <div className="p-6 border-b border-border">
-        <div className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-coreconx flex items-center justify-center">
             <span className="text-white font-bold text-lg">C</span>
           </div>
@@ -43,11 +48,11 @@ export function Sidebar() {
             </h1>
             <p className="text-muted text-xs">Mission Control</p>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive =
             pathname === item.href ||
@@ -70,12 +75,19 @@ export function Sidebar() {
       </nav>
 
       {/* Status footer */}
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-border space-y-3">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
           <span className="text-xs text-muted">Chuck — Online</span>
         </div>
-        <p className="text-xs text-muted mt-1">claude-opus-4 | 24/7</p>
+        <p className="text-xs text-muted">claude-opus-4 | 24/7</p>
+        <button
+          onClick={logout}
+          className="flex items-center gap-2 text-xs text-muted hover:text-danger transition-colors"
+        >
+          <LogOut size={14} />
+          Sign Out
+        </button>
       </div>
     </aside>
   );

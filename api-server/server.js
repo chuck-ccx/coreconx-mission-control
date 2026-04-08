@@ -146,14 +146,14 @@ app.get('/api/tasks', (req, res) => {
   }
 
   const result = linearQuery(`{
-    issues(first: 50, orderBy: updatedAt) {
+    issues(first: 50, orderBy: updatedAt, filter: { state: { type: { nin: ["canceled"] } } }) {
       nodes {
         id
         identifier
         title
         description
         priority
-        state { name color }
+        state { id name color type }
         assignee { name }
         createdAt
         updatedAt
@@ -165,6 +165,44 @@ app.get('/api/tasks', (req, res) => {
 
   if (!result) return res.status(500).json({ error: 'Failed to fetch tasks' });
   res.json(result.data?.issues?.nodes || []);
+});
+
+// ==================== Linear — Workflow States ====================
+
+app.get('/api/tasks/states', (req, res) => {
+  if (!process.env.LINEAR_API_KEY) {
+    return res.status(500).json({ error: 'LINEAR_API_KEY not set' });
+  }
+
+  const result = linearQuery(`{ workflowStates { nodes { id name color type position } } }`);
+  if (!result) return res.status(500).json({ error: 'Failed to fetch states' });
+  res.json(result.data?.workflowStates?.nodes || []);
+});
+
+// ==================== Linear — Update Issue Status ====================
+
+app.patch('/api/tasks/:id', (req, res) => {
+  if (!process.env.LINEAR_API_KEY) {
+    return res.status(500).json({ error: 'LINEAR_API_KEY not set' });
+  }
+
+  const { id } = req.params;
+  const { stateId, priority } = req.body;
+  if (!stateId && priority === undefined) {
+    return res.status(400).json({ error: 'stateId or priority required' });
+  }
+
+  const updates = [];
+  if (stateId) updates.push(`stateId: "${stateId}"`);
+  if (priority !== undefined) updates.push(`priority: ${priority}`);
+
+  const mutation = `mutation { issueUpdate(id: "${id}", input: { ${updates.join(', ')} }) { success issue { id identifier title state { name color type } } } }`;
+  const result = linearQuery(mutation);
+  if (!result || !result.data?.issueUpdate?.success) {
+    return res.status(500).json({ error: 'Failed to update task', details: result });
+  }
+
+  res.json(result.data.issueUpdate.issue);
 });
 
 // ==================== Google Calendar ====================
