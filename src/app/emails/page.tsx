@@ -238,8 +238,8 @@ const legalDocs = [
 export default function EmailsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("Campaign");
   const [selectedEmail, setSelectedEmail] = useState<CampaignEmail | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<TemplateCategory | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [sentEmails, setSentEmails] = useState<GmailMessage[]>([]);
   const [inboxEmails, setInboxEmails] = useState<GmailMessage[]>([]);
   const [loadingSent, setLoadingSent] = useState(false);
@@ -417,32 +417,66 @@ export default function EmailsPage() {
 
       {/* Templates Tab */}
       {activeTab === "Templates" && (
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="text-lg font-semibold text-foreground">
-            Email Templates
-          </h2>
-          <p className="text-xs text-muted mt-1">Click a category to see all templates, then click a template to read the full body</p>
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            {templateCategories.map((cat) => (
+        <div className="space-y-4">
+          {templateCategories.map((cat) => (
+            <div key={cat.name} className="bg-card border border-border rounded-xl overflow-hidden">
               <button
-                key={cat.name}
-                onClick={() => setSelectedCategory(cat)}
-                className="text-left p-4 rounded-lg border border-border bg-background hover:border-coreconx/40 transition-colors cursor-pointer"
+                onClick={() => setExpandedCategory(expandedCategory === cat.name ? null : cat.name)}
+                className="w-full text-left flex items-center justify-between p-5 hover:bg-card-hover transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{cat.icon}</span>
                   <div>
-                    <h3 className="text-sm font-medium text-foreground">
-                      {cat.name}
-                    </h3>
-                    <p className="text-xs text-muted">
-                      {cat.count} templates
-                    </p>
+                    <h3 className="text-base font-semibold text-foreground">{cat.name}</h3>
+                    <p className="text-xs text-muted">{cat.count} templates</p>
                   </div>
                 </div>
+                <span className="text-muted text-lg">{expandedCategory === cat.name ? "▼" : "▶"}</span>
               </button>
-            ))}
-          </div>
+              {expandedCategory === cat.name && (
+                <div className="border-t border-border">
+                  {cat.templates.map((tpl) => {
+                    const tplKey = `${cat.name}-${tpl.name}`;
+                    const isExpanded = expandedTemplate === tplKey;
+                    return (
+                      <div key={tpl.name} className="border-b border-border last:border-b-0">
+                        <button
+                          onClick={() => setExpandedTemplate(isExpanded ? null : tplKey)}
+                          className="w-full text-left flex items-center justify-between px-5 py-3 hover:bg-card-hover transition-colors"
+                        >
+                          <div>
+                            <h4 className="text-sm font-medium text-foreground">{tpl.name}</h4>
+                            <p className="text-xs text-muted">Subject: &quot;{tpl.subject}&quot;</p>
+                          </div>
+                          <span className="text-xs px-2.5 py-1 rounded-full bg-coreconx/10 text-coreconx-light">
+                            {isExpanded ? "Close" : "View"}
+                          </span>
+                        </button>
+                        {isExpanded && (
+                          <div className="px-5 pb-5">
+                            <div className="bg-background rounded-lg border border-border overflow-hidden">
+                              {/* Email header */}
+                              <div className="px-4 py-3 border-b border-border bg-card-hover/50">
+                                <div className="text-xs text-muted space-y-1">
+                                  <p><span className="font-medium text-foreground">From:</span> Dylan &lt;dylan@coreconx.group&gt;</p>
+                                  <p><span className="font-medium text-foreground">To:</span> [Recipient]</p>
+                                  <p><span className="font-medium text-foreground">Subject:</span> {tpl.subject}</p>
+                                </div>
+                              </div>
+                              {/* Email body */}
+                              <div className="p-4">
+                                <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{tpl.body}</pre>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
@@ -543,52 +577,6 @@ export default function EmailsPage() {
         )}
       </Modal>
 
-      {/* Template Category Modal */}
-      <Modal
-        open={!!selectedCategory && !selectedTemplate}
-        onClose={() => setSelectedCategory(null)}
-        title={selectedCategory ? `${selectedCategory.icon} ${selectedCategory.name} Templates` : ""}
-        subtitle={selectedCategory ? `${selectedCategory.count} templates` : ""}
-        wide
-      >
-        {selectedCategory && (
-          <div className="space-y-2">
-            {selectedCategory.templates.map((tpl) => (
-              <button
-                key={tpl.name}
-                onClick={() => setSelectedTemplate(tpl)}
-                className="w-full text-left p-4 rounded-lg border border-border bg-background hover:border-coreconx/40 transition-colors"
-              >
-                <h3 className="text-sm font-medium text-foreground">{tpl.name}</h3>
-                <p className="text-xs text-muted mt-1">Subject: &quot;{tpl.subject}&quot;</p>
-              </button>
-            ))}
-          </div>
-        )}
-      </Modal>
-
-      {/* Individual Template Modal */}
-      <Modal
-        open={!!selectedTemplate}
-        onClose={() => setSelectedTemplate(null)}
-        title={selectedTemplate?.name || ""}
-        subtitle={selectedTemplate ? `Subject: "${selectedTemplate.subject}"` : ""}
-      >
-        {selectedTemplate && (
-          <div className="space-y-4">
-            <div className="bg-background rounded-lg p-4 border border-border">
-              <h4 className="text-xs font-medium text-muted mb-2">Email Body</h4>
-              <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{selectedTemplate.body}</pre>
-            </div>
-            <button
-              onClick={() => setSelectedTemplate(null)}
-              className="text-xs text-muted hover:text-foreground transition-colors"
-            >
-              ← Back to {selectedCategory?.name} templates
-            </button>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 }
