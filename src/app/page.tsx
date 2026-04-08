@@ -8,6 +8,7 @@ import {
   Target,
   Zap,
 } from "lucide-react";
+import Link from "next/link";
 import { StatCard } from "@/components/stat-card";
 
 export default function Dashboard() {
@@ -29,31 +30,35 @@ export default function Dashboard() {
           subtitle="Verified direct emails"
           icon={<Users size={20} />}
           trend={{ value: "+5 companies researched", positive: true }}
+          href="/crm"
         />
         <StatCard
           title="Emails Sent"
           value={0}
           subtitle="Campaign not started"
           icon={<Mail size={20} />}
+          href="/emails"
         />
         <StatCard
           title="Active Tasks"
           value={3}
           subtitle="Doc updates, research, dashboard"
           icon={<CheckSquare size={20} />}
+          href="/tasks"
         />
         <StatCard
           title="Agents Online"
           value={1}
           subtitle="Chuck (Opus 4)"
           icon={<Bot size={20} />}
+          href="/agents"
         />
       </div>
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Pipeline */}
-        <div className="bg-card border border-border rounded-xl p-5">
+        <Link href="/crm" className="bg-card border border-border rounded-xl p-5 block hover:border-coreconx/40 transition-colors">
           <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
             <Target size={18} className="text-coreconx-light" />
             Pipeline
@@ -77,7 +82,7 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-        </div>
+        </Link>
 
         {/* Recent Activity */}
         <div className="bg-card border border-border rounded-xl p-5">
@@ -137,23 +142,27 @@ export default function Dashboard() {
               desc: "Need PAT with repo scope to accept Marty's invite to coreconx-web",
               status: "Blocked",
               statusColor: "text-danger",
+              href: "/tasks",
             },
             {
               title: "Launch Outreach Campaign",
               desc: "3-email founding partner sequence ready to send",
               status: "Ready",
               statusColor: "text-success",
+              href: "/emails",
             },
             {
               title: "Build Mission Control",
               desc: "This dashboard — deploy to Netlify",
               status: "In Progress",
               statusColor: "text-warning",
+              href: "/tasks",
             },
           ].map((item) => (
-            <div
+            <Link
               key={item.title}
-              className="p-4 rounded-lg border border-border bg-background"
+              href={item.href}
+              className="p-4 rounded-lg border border-border bg-background block hover:border-coreconx/40 transition-colors"
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium text-foreground">
@@ -164,7 +173,7 @@ export default function Dashboard() {
                 </span>
               </div>
               <p className="text-xs text-muted mt-2">{item.desc}</p>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
@@ -177,6 +186,7 @@ export default function Dashboard() {
           subtitle="All phases complete"
           icon={<TrendingUp size={20} />}
           trend={{ value: "Corrected & pushed to Drive", positive: true }}
+          href="https://drive.google.com/drive/folders/"
         />
         <StatCard
           title="Email Templates"
@@ -184,6 +194,7 @@ export default function Dashboard() {
           subtitle="6 categories"
           icon={<Mail size={20} />}
           trend={{ value: "Hormozi-aligned", positive: true }}
+          href="/emails"
         />
         <StatCard
           title="Domain Auth"
