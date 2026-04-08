@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { CheckSquare, Circle, Clock, CheckCircle2, Loader2, RefreshCw, ChevronRight, ThumbsUp, Trash2, X } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { CheckSquare, Circle, Clock, CheckCircle2, Loader2, RefreshCw, ChevronRight, ThumbsUp, Trash2, X, UserCircle, ChevronDown } from "lucide-react";
 import { Modal } from "@/components/modal";
 import { apiFetch } from "@/lib/api";
 
@@ -12,11 +12,17 @@ interface LinearIssue {
   description: string | null;
   priority: number;
   state: { id: string; name: string; color: string; type: string } | null;
-  assignee: { name: string } | null;
+  assignee: { id: string; name: string } | null;
   createdAt: string;
   updatedAt: string;
   project: { name: string } | null;
   labels: { nodes: { name: string; color: string }[] } | null;
+}
+
+interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
 }
 
 interface WorkflowState {
@@ -56,6 +62,7 @@ const columns: { id: ColumnId; label: string; icon: typeof Circle; color: string
 export default function TasksPage() {
   const [issues, setIssues] = useState<LinearIssue[]>([]);
   const [states, setStates] = useState<WorkflowState[]>([]);
+  const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<LinearIssue | null>(null);
@@ -63,19 +70,24 @@ export default function TasksPage() {
   const [approving, setApproving] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [assignDropdown, setAssignDropdown] = useState<string | null>(null);
+  const [assigning, setAssigning] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
-    const [tasksData, statesData] = await Promise.all([
+    const [tasksData, statesData, membersData] = await Promise.all([
       apiFetch<LinearIssue[]>("/api/tasks"),
       apiFetch<WorkflowState[]>("/api/tasks/states"),
+      apiFetch<TeamMember[]>("/api/tasks/members"),
     ]);
 
     if (tasksData && Array.isArray(tasksData)) setIssues(tasksData);
     if (statesData && Array.isArray(statesData)) setStates(statesData);
+    if (membersData && Array.isArray(membersData)) setMembers(membersData);
     setLastUpdated(new Date());
     setLoading(false);
     setRefreshing(false);
@@ -148,6 +160,39 @@ export default function TasksPage() {
     }
     setDeleting(null);
     setConfirmDelete(null);
+  };
+
+  const assignTask = async (issue: LinearIssue, userId: string | null) => {
+    setAssigning(issue.id);
+    setAssignDropdown(null);
+
+    const result = await apiFetch<{ assigned: boolean; assignee: { name: string; id: string } | null }>(`/api/tasks/${issue.id}/assign`, {
+      method: "POST",
+      body: JSON.stringify({ userId }),
+    });
+
+    if (result?.assigned) {
+      await fetchData(true);
+    }
+    setAssigning(null);
+  };
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setAssignDropdown(null);
+      }
+    };
+    if (assignDropdown) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [assignDropdown]);
+
+  // Helper: get effective assignee name (check for Chuck label if no Linear assignee)
+  const getAssigneeName = (issue: LinearIssue): string | null => {
+    if (issue.assignee?.name) return issue.assignee.name;
+    if (issue.labels?.nodes?.some(l => l.name === "Assigned: Chuck")) return "Chuck (AI)";
+    return null;
   };
 
   const issuesByColumn = (colId: ColumnId) =>
@@ -228,11 +273,46 @@ export default function TasksPage() {
                         <p className="text-xs text-muted mt-1 leading-relaxed line-clamp-2">{issue.description}</p>
                       )}
                       <div className="flex items-center justify-between mt-3">
-                        {issue.assignee ? (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-coreconx/20 text-coreconx-light">{issue.assignee.name}</span>
-                        ) : (
-                          <span className="text-[10px] text-muted">Unassigned</span>
-                        )}
+                        <div className="relative" ref={assignDropdown === issue.id ? dropdownRef : undefined}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setAssignDropdown(assignDropdown === issue.id ? null : issue.id); }}
+                            disabled={assigning === issue.id}
+                            className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
+                              getAssigneeName(issue)
+                                ? "bg-coreconx/20 text-coreconx-light hover:bg-coreconx/30"
+                                : "text-muted hover:text-foreground hover:bg-border/50"
+                            } disabled:opacity-50`}
+                            title="Click to assign"
+                          >
+                            {assigning === issue.id ? <Loader2 size={10} className="animate-spin" /> : <UserCircle size={10} />}
+                            {getAssigneeName(issue) || "Unassigned"}
+                            <ChevronDown size={8} />
+                          </button>
+                          {assignDropdown === issue.id && (
+                            <div className="absolute left-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[140px]">
+                              {members.map(m => (
+                                <button
+                                  key={m.id}
+                                  onClick={(e) => { e.stopPropagation(); assignTask(issue, m.id); }}
+                                  className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-border/50 transition-colors flex items-center gap-2 ${
+                                    (getAssigneeName(issue) === m.name) ? "text-coreconx-light font-medium" : "text-foreground"
+                                  }`}
+                                >
+                                  <UserCircle size={12} />
+                                  {m.name}
+                                </button>
+                              ))}
+                              <div className="border-t border-border my-1" />
+                              <button
+                                onClick={(e) => { e.stopPropagation(); assignTask(issue, null); }}
+                                className="w-full text-left px-3 py-1.5 text-[11px] text-muted hover:bg-border/50 transition-colors flex items-center gap-2"
+                              >
+                                <X size={12} />
+                                Unassign
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         <span className="text-[10px] text-muted">
                           {new Date(issue.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </span>
@@ -310,9 +390,45 @@ export default function TasksPage() {
               <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${(priorityLabels[selectedIssue.priority] || priorityLabels[0]).class}`}>
                 {(priorityLabels[selectedIssue.priority] || priorityLabels[0]).label}
               </span>
-              {selectedIssue.assignee && (
-                <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-coreconx/20 text-coreconx-light">{selectedIssue.assignee.name}</span>
-              )}
+              <div className="relative" ref={assignDropdown === selectedIssue.id ? dropdownRef : undefined}>
+                <button
+                  onClick={() => setAssignDropdown(assignDropdown === selectedIssue.id ? null : selectedIssue.id)}
+                  disabled={assigning === selectedIssue.id}
+                  className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${
+                    getAssigneeName(selectedIssue)
+                      ? "bg-coreconx/20 text-coreconx-light hover:bg-coreconx/30"
+                      : "bg-border/50 text-muted hover:text-foreground"
+                  } disabled:opacity-50`}
+                >
+                  {assigning === selectedIssue.id ? <Loader2 size={12} className="animate-spin" /> : <UserCircle size={12} />}
+                  {getAssigneeName(selectedIssue) || "Unassigned"}
+                  <ChevronDown size={10} />
+                </button>
+                {assignDropdown === selectedIssue.id && (
+                  <div className="absolute left-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[160px]">
+                    {members.map(m => (
+                      <button
+                        key={m.id}
+                        onClick={() => assignTask(selectedIssue, m.id)}
+                        className={`w-full text-left px-3 py-2 text-xs hover:bg-border/50 transition-colors flex items-center gap-2 ${
+                          (getAssigneeName(selectedIssue) === m.name) ? "text-coreconx-light font-medium" : "text-foreground"
+                        }`}
+                      >
+                        <UserCircle size={14} />
+                        {m.name}
+                      </button>
+                    ))}
+                    <div className="border-t border-border my-1" />
+                    <button
+                      onClick={() => assignTask(selectedIssue, null)}
+                      className="w-full text-left px-3 py-2 text-xs text-muted hover:bg-border/50 transition-colors flex items-center gap-2"
+                    >
+                      <X size={14} />
+                      Unassign
+                    </button>
+                  </div>
+                )}
+              </div>
               {selectedIssue.project && (
                 <span className="text-xs text-muted">Project: {selectedIssue.project.name}</span>
               )}

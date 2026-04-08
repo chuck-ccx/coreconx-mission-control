@@ -154,7 +154,7 @@ app.get('/api/tasks', (req, res) => {
         description
         priority
         state { id name color type }
-        assignee { name }
+        assignee { id name }
         createdAt
         updatedAt
         project { name }
@@ -302,6 +302,95 @@ app.post('/api/tasks/:id/unapprove', (req, res) => {
   linearQuery(mutation);
 
   res.json({ unapproved: true });
+});
+
+// ==================== Linear — Team Members ====================
+
+app.get('/api/tasks/members', (req, res) => {
+  if (!process.env.LINEAR_API_KEY) {
+    return res.status(500).json({ error: 'LINEAR_API_KEY not set' });
+  }
+
+  const result = linearQuery(`{ users { nodes { id name email displayName active } } }`);
+  if (!result) return res.status(500).json({ error: 'Failed to fetch members' });
+
+  const users = (result.data?.users?.nodes || [])
+    .filter(u => u.active !== false)
+    .map(u => ({ id: u.id, name: u.displayName || u.name, email: u.email }));
+
+  // Add Chuck (AI) as a virtual member — uses label-based assignment
+  users.push({ id: 'chuck-ai', name: 'Chuck (AI)', email: 'chuck@coreconx.group' });
+
+  res.json(users);
+});
+
+// ==================== Linear — Assign Issue ====================
+
+app.post('/api/tasks/:id/assign', (req, res) => {
+  if (!process.env.LINEAR_API_KEY) {
+    return res.status(500).json({ error: 'LINEAR_API_KEY not set' });
+  }
+
+  const { id } = req.params;
+  const { userId } = req.body; // null to unassign, 'chuck-ai' for Chuck, or a real Linear user ID
+
+  if (userId === 'chuck-ai') {
+    // Chuck isn't a Linear user — add "Assigned: Chuck" label instead
+    let labelResult = linearQuery(`{ issueLabels(filter: { name: { eq: "Assigned: Chuck" } }) { nodes { id } } }`);
+    let labelId = labelResult?.data?.issueLabels?.nodes?.[0]?.id;
+    if (!labelId) {
+      const createLabel = linearQuery(`mutation { issueLabelCreate(input: { name: "Assigned: Chuck", color: "#6366f1" }) { success issueLabel { id } } }`);
+      labelId = createLabel?.data?.issueLabelCreate?.issueLabel?.id;
+    }
+    if (!labelId) return res.status(500).json({ error: 'Could not create Chuck label' });
+
+    // Get current labels and add Chuck's
+    const issueResult = linearQuery(`{ issue(id: "${id}") { labels { nodes { id } } } }`);
+    const currentLabelIds = (issueResult?.data?.issue?.labels?.nodes || []).map(l => l.id);
+    if (!currentLabelIds.includes(labelId)) currentLabelIds.push(labelId);
+    const labelIdList = currentLabelIds.map(lid => `"${lid}"`).join(', ');
+
+    const mutation = `mutation { issueUpdate(id: "${id}", input: { labelIds: [${labelIdList}], assigneeId: null }) { success issue { id assignee { name } labels { nodes { name color } } } } }`;
+    const result = linearQuery(mutation);
+    if (!result?.data?.issueUpdate?.success) return res.status(500).json({ error: 'Failed to assign to Chuck' });
+    return res.json({ assigned: true, assignee: { name: 'Chuck (AI)', id: 'chuck-ai' }, issue: result.data.issueUpdate.issue });
+  }
+
+  if (userId === null || userId === 'unassign') {
+    // Unassign — also remove "Assigned: Chuck" label if present
+    const labelResult = linearQuery(`{ issueLabels(filter: { name: { eq: "Assigned: Chuck" } }) { nodes { id } } }`);
+    const chuckLabelId = labelResult?.data?.issueLabels?.nodes?.[0]?.id;
+
+    let labelUpdate = '';
+    if (chuckLabelId) {
+      const issueResult = linearQuery(`{ issue(id: "${id}") { labels { nodes { id } } } }`);
+      const currentLabelIds = (issueResult?.data?.issue?.labels?.nodes || []).map(l => l.id).filter(lid => lid !== chuckLabelId);
+      const labelIdList = currentLabelIds.map(lid => `"${lid}"`).join(', ');
+      labelUpdate = `, labelIds: [${labelIdList}]`;
+    }
+
+    const mutation = `mutation { issueUpdate(id: "${id}", input: { assigneeId: null${labelUpdate} }) { success issue { id assignee { name } } } }`;
+    const result = linearQuery(mutation);
+    if (!result?.data?.issueUpdate?.success) return res.status(500).json({ error: 'Failed to unassign' });
+    return res.json({ assigned: true, assignee: null, issue: result.data.issueUpdate.issue });
+  }
+
+  // Regular Linear user assignment — also remove Chuck label if present
+  const labelResult = linearQuery(`{ issueLabels(filter: { name: { eq: "Assigned: Chuck" } }) { nodes { id } } }`);
+  const chuckLabelId = labelResult?.data?.issueLabels?.nodes?.[0]?.id;
+
+  let labelUpdate = '';
+  if (chuckLabelId) {
+    const issueResult = linearQuery(`{ issue(id: "${id}") { labels { nodes { id } } } }`);
+    const currentLabelIds = (issueResult?.data?.issue?.labels?.nodes || []).map(l => l.id).filter(lid => lid !== chuckLabelId);
+    const labelIdList = currentLabelIds.map(lid => `"${lid}"`).join(', ');
+    labelUpdate = `, labelIds: [${labelIdList}]`;
+  }
+
+  const mutation = `mutation { issueUpdate(id: "${id}", input: { assigneeId: "${userId}"${labelUpdate} }) { success issue { id assignee { id name } } } }`;
+  const result = linearQuery(mutation);
+  if (!result?.data?.issueUpdate?.success) return res.status(500).json({ error: 'Failed to assign task', details: result });
+  res.json({ assigned: true, assignee: result.data.issueUpdate.issue.assignee, issue: result.data.issueUpdate.issue });
 });
 
 // ==================== Gmail — Inbox by Alias ====================
