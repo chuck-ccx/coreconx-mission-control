@@ -101,91 +101,23 @@ Reply STOP to unsubscribe.`,
   },
 ];
 
-interface Template {
+interface SheetTemplate {
   name: string;
   subject: string;
-  body: string;
+  bodyPreview: string;
+  variationA: string;
+  variationB: string;
+  variables: string;
+  notes: string;
 }
 
 interface TemplateCategory {
   name: string;
-  count: number;
+  count?: number;
   icon: string;
-  templates: Template[];
+  sheetUrl: string;
+  templates: SheetTemplate[];
 }
-
-const templateCategories: TemplateCategory[] = [
-  {
-    name: "Onboarding",
-    count: 6,
-    icon: "📥",
-    templates: [
-      { name: "Welcome Email", subject: "Welcome to CoreConX", body: "Hey [Name],\n\nWelcome to CoreConX! You're one of our founding partners, and that means a lot.\n\nHere's how to get started:\n1. Download the app (link coming soon to App Store/Google Play)\n2. Create your first project\n3. Log your first drill shift\n\nIf you hit any snags, reply to this email — I'm here to help.\n\nDylan" },
-      { name: "Email Verification", subject: "Verify your CoreConX email", body: "Click the link below to verify your email address:\n\n[Verification Link]\n\nIf you didn't create a CoreConX account, ignore this email." },
-      { name: "Password Reset", subject: "Reset your CoreConX password", body: "Someone requested a password reset for your CoreConX account.\n\nClick here to reset: [Reset Link]\n\nThis link expires in 24 hours. If you didn't request this, no action needed." },
-      { name: "Trial Started", subject: "Your CoreConX account is live", body: "Hey [Name],\n\nYour CoreConX account is set up and ready to go.\n\nLog your first shift in under 2 minutes — that's all it takes to see the value.\n\nDylan" },
-      { name: "Trial Expiring (7 days)", subject: "Your CoreConX access — 7 days left", body: "Hey [Name],\n\nJust a heads up — your founding partner access is active and running smoothly. Any feedback so far?\n\nDylan" },
-      { name: "Trial Expiring (1 day)", subject: "Quick check-in on CoreConX", body: "Hey [Name],\n\nHow's the app working for you? I'd love to hear what's useful and what needs work.\n\nDylan" },
-    ],
-  },
-  {
-    name: "Transactional",
-    count: 5,
-    icon: "💳",
-    templates: [
-      { name: "Subscription Confirmed", subject: "You're subscribed to CoreConX", body: "Thanks for subscribing! Your account is now on the [Plan] plan.\n\nBilling: $150/mo per user\nNext payment: [Date]\n\nManage your subscription in Settings > Billing.\n\nDylan" },
-      { name: "Invoice / Payment Receipt", subject: "CoreConX payment receipt", body: "Payment received — thanks!\n\nAmount: [Amount]\nDate: [Date]\nInvoice: [Link]\n\nQuestions? Reply to this email." },
-      { name: "Payment Failed", subject: "Payment issue with your CoreConX account", body: "Hey [Name],\n\nYour payment didn't go through. We'll retry in 3 days.\n\nUpdate your payment method: [Link]\n\nIf you need help, just reply.\n\nDylan" },
-      { name: "Subscription Cancelled", subject: "CoreConX cancellation confirmed", body: "Hey [Name],\n\nYour subscription has been cancelled. Your data will be available for 30 days.\n\nIf there's anything we could have done better, I'd genuinely like to know.\n\nDylan" },
-      { name: "Plan Change Confirmation", subject: "CoreConX plan updated", body: "Your plan has been updated to [New Plan].\n\nChanges take effect immediately. Your next invoice will reflect the new rate.\n\nDylan" },
-    ],
-  },
-  {
-    name: "Engagement",
-    count: 4,
-    icon: "📊",
-    templates: [
-      { name: "First Drill Logged", subject: "Nice — first drill logged!", body: "Hey [Name],\n\nYou just logged your first drill shift in CoreConX. That data's already working for you.\n\nTip: Log consistently for a week and you'll start seeing performance patterns you never noticed.\n\nDylan" },
-      { name: "Weekly Summary", subject: "Your CoreConX weekly summary", body: "Hey [Name],\n\nHere's your week:\n- Shifts logged: [X]\n- Total meters: [X]\n- Top performer: [Name]\n\nKeep it up.\n\nDylan" },
-      { name: "Product Update", subject: "What's new in CoreConX", body: "Hey [Name],\n\nNew this week:\n- [Feature 1]\n- [Feature 2]\n- [Bug fix]\n\nYour feedback drove [Feature 1] — thanks for that.\n\nDylan" },
-      { name: "Inactivity Nudge", subject: "Haven't seen you in a while", body: "Hey [Name],\n\nNoticed you haven't logged in for a bit. Everything OK?\n\nIf something's not working or the app isn't useful, I'd rather hear it straight. No hard feelings.\n\nDylan" },
-    ],
-  },
-  {
-    name: "Marketplace",
-    count: 5,
-    icon: "🤝",
-    templates: [
-      { name: "New Job Match", subject: "New drilling opportunity matches your profile", body: "Hey [Name],\n\nA new project just came in that matches your profile:\n\n[Project details]\n\nInterested? Reply or check the marketplace.\n\nDylan" },
-      { name: "Profile Approved", subject: "Your contractor profile is live", body: "Hey [Name],\n\nYour contractor profile is now live on the CoreConX marketplace. Mine operators can now find and contact you.\n\nDylan" },
-      { name: "Job Request Received", subject: "New drilling request for your review", body: "A mine operator has submitted a drilling request:\n\n[Request details]\n\nReview and respond in the marketplace.\n\nDylan" },
-      { name: "Match Confirmed", subject: "You've been matched!", body: "Hey [Name],\n\nYou've been matched with [Other Party] for [Project].\n\nWe'll make an intro shortly. Questions? Reply here.\n\nDylan" },
-      { name: "Review Request", subject: "How did the project go?", body: "Hey [Name],\n\nThe [Project] with [Other Party] is marked complete. Would you mind leaving a quick review?\n\n[Review Link]\n\nThanks!\nDylan" },
-    ],
-  },
-  {
-    name: "Support",
-    count: 4,
-    icon: "🎧",
-    templates: [
-      { name: "Ticket Received", subject: "Got your support request", body: "Hey [Name],\n\nGot your message. I'm looking into it now and will get back to you shortly.\n\nTicket: [ID]\n\nChuck (CoreConX Support)" },
-      { name: "Ticket Resolved", subject: "Your support ticket is resolved", body: "Hey [Name],\n\nYour issue has been resolved:\n\n[Resolution details]\n\nIf it's not fully fixed, just reply and we'll keep working on it.\n\nChuck (CoreConX Support)" },
-      { name: "Maintenance Notice", subject: "Scheduled maintenance — [Date]", body: "Hey [Name],\n\nQuick heads up — we have scheduled maintenance on [Date] from [Time] to [Time].\n\nThe app may be briefly unavailable. Your data is safe.\n\nDylan" },
-      { name: "Data Export Ready", subject: "Your data export is ready", body: "Your data export is ready for download:\n\n[Download Link]\n\nThis link expires in 7 days.\n\nChuck (CoreConX Support)" },
-    ],
-  },
-  {
-    name: "Outreach",
-    count: 4,
-    icon: "📨",
-    templates: [
-      { name: "Cold Outreach", subject: "Quick question about your drilling ops", body: "Hey [Name],\n\nI'm Dylan — I work as a helper at Hardrock Diamond Drilling. I've been building an app to track driller performance and shifts because the tools out there aren't built for us.\n\nI'm looking for companies willing to try it and give honest feedback. Free, no strings.\n\nWorth a quick look?\n\nDylan" },
-      { name: "Warm Follow-Up", subject: "Following up — CoreConX", body: "Hey [Name],\n\nWe met at [Event/Connection]. I mentioned the drilling app I've been building — wanted to follow up and see if you'd be open to trying it.\n\nFree access, just looking for real-world feedback.\n\nDylan" },
-      { name: "Partnership Inquiry", subject: "Partnership idea for [Company]", body: "Hey [Name],\n\nI'm building CoreConX — a performance tracking app for diamond drillers. I think there might be a natural fit between what we're building and what [Company] does.\n\nWould you be open to a quick chat?\n\nDylan" },
-      { name: "Demo Invite", subject: "Want to see CoreConX in action?", body: "Hey [Name],\n\nI can do a quick 10-minute walkthrough of the app — just screen share, no slides, no pitch.\n\nWould [Day] work for you?\n\nDylan" },
-    ],
-  },
-];
 
 const aliases = [
   "chuck@coreconx.group",
@@ -242,12 +174,15 @@ export default function EmailsPage() {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [sentEmails, setSentEmails] = useState<GmailMessage[]>([]);
   const [inboxEmails, setInboxEmails] = useState<GmailMessage[]>([]);
+  const [templateCategories, setTemplateCategories] = useState<TemplateCategory[]>([]);
   const [loadingSent, setLoadingSent] = useState(false);
   const [loadingInbox, setLoadingInbox] = useState(false);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
 
   useEffect(() => {
     setLoadingSent(true);
     setLoadingInbox(true);
+    setLoadingTemplates(true);
     apiFetch<GmailMessage[]>("/api/emails/sent").then((data) => {
       if (data && Array.isArray(data)) setSentEmails(data);
       setLoadingSent(false);
@@ -255,6 +190,10 @@ export default function EmailsPage() {
     apiFetch<GmailMessage[]>("/api/emails/inbox").then((data) => {
       if (data && Array.isArray(data)) setInboxEmails(data);
       setLoadingInbox(false);
+    });
+    apiFetch<TemplateCategory[]>("/api/templates").then((data) => {
+      if (data && Array.isArray(data)) setTemplateCategories(data);
+      setLoadingTemplates(false);
     });
   }, []);
 
@@ -300,9 +239,9 @@ export default function EmailsPage() {
           },
           {
             label: "Templates",
-            value: "28",
+            value: loadingTemplates ? "..." : String(templateCategories.reduce((sum, c) => sum + (c.count || c.templates.length), 0)),
             icon: <FileText size={16} />,
-            sub: "6 categories",
+            sub: loadingTemplates ? "Loading..." : `${templateCategories.length} categories`,
           },
           {
             label: "Domain Auth",
@@ -418,65 +357,110 @@ export default function EmailsPage() {
       {/* Templates Tab */}
       {activeTab === "Templates" && (
         <div className="space-y-4">
-          {templateCategories.map((cat) => (
-            <div key={cat.name} className="bg-card border border-border rounded-xl overflow-hidden">
-              <button
-                onClick={() => setExpandedCategory(expandedCategory === cat.name ? null : cat.name)}
-                className="w-full text-left flex items-center justify-between p-5 hover:bg-card-hover transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{cat.icon}</span>
-                  <div>
-                    <h3 className="text-base font-semibold text-foreground">{cat.name}</h3>
-                    <p className="text-xs text-muted">{cat.count} templates</p>
+          {loadingTemplates ? (
+            <div className="text-center py-12">
+              <Loader2 size={32} className="mx-auto text-muted animate-spin" />
+              <p className="text-muted mt-4">Loading templates from Google Sheets...</p>
+            </div>
+          ) : templateCategories.length === 0 ? (
+            <div className="text-center py-12">
+              <FileText size={40} className="mx-auto text-muted/30" />
+              <p className="text-muted mt-4">No templates found</p>
+            </div>
+          ) : (
+            templateCategories.map((cat) => (
+              <div key={cat.name} className="bg-card border border-border rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setExpandedCategory(expandedCategory === cat.name ? null : cat.name)}
+                  className="w-full text-left flex items-center justify-between p-5 hover:bg-card-hover transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{cat.icon}</span>
+                    <div>
+                      <h3 className="text-base font-semibold text-foreground">{cat.name}</h3>
+                      <p className="text-xs text-muted">{cat.count || cat.templates.length} templates</p>
+                    </div>
                   </div>
-                </div>
-                <span className="text-muted text-lg">{expandedCategory === cat.name ? "▼" : "▶"}</span>
-              </button>
-              {expandedCategory === cat.name && (
-                <div className="border-t border-border">
-                  {cat.templates.map((tpl) => {
-                    const tplKey = `${cat.name}-${tpl.name}`;
-                    const isExpanded = expandedTemplate === tplKey;
-                    return (
-                      <div key={tpl.name} className="border-b border-border last:border-b-0">
-                        <button
-                          onClick={() => setExpandedTemplate(isExpanded ? null : tplKey)}
-                          className="w-full text-left flex items-center justify-between px-5 py-3 hover:bg-card-hover transition-colors"
-                        >
-                          <div>
-                            <h4 className="text-sm font-medium text-foreground">{tpl.name}</h4>
-                            <p className="text-xs text-muted">Subject: &quot;{tpl.subject}&quot;</p>
-                          </div>
-                          <span className="text-xs px-2.5 py-1 rounded-full bg-coreconx/10 text-coreconx-light">
-                            {isExpanded ? "Close" : "View"}
-                          </span>
-                        </button>
-                        {isExpanded && (
-                          <div className="px-5 pb-5">
-                            <div className="bg-background rounded-lg border border-border overflow-hidden">
-                              {/* Email header */}
-                              <div className="px-4 py-3 border-b border-border bg-card-hover/50">
-                                <div className="text-xs text-muted space-y-1">
-                                  <p><span className="font-medium text-foreground">From:</span> Dylan &lt;dylan@coreconx.group&gt;</p>
-                                  <p><span className="font-medium text-foreground">To:</span> [Recipient]</p>
-                                  <p><span className="font-medium text-foreground">Subject:</span> {tpl.subject}</p>
+                  <div className="flex items-center gap-3">
+                    <a
+                      href={cat.sheetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-xs px-2.5 py-1 rounded-full bg-coreconx/10 text-coreconx-light hover:bg-coreconx/20 transition-colors flex items-center gap-1"
+                    >
+                      <ExternalLink size={10} />
+                      Sheet
+                    </a>
+                    <span className="text-muted text-lg">{expandedCategory === cat.name ? "▼" : "▶"}</span>
+                  </div>
+                </button>
+                {expandedCategory === cat.name && (
+                  <div className="border-t border-border">
+                    {cat.templates.map((tpl) => {
+                      const tplKey = `${cat.name}-${tpl.name}`;
+                      const isExpanded = expandedTemplate === tplKey;
+                      return (
+                        <div key={tpl.name} className="border-b border-border last:border-b-0">
+                          <button
+                            onClick={() => setExpandedTemplate(isExpanded ? null : tplKey)}
+                            className="w-full text-left flex items-center justify-between px-5 py-3 hover:bg-card-hover transition-colors"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-medium text-foreground">{tpl.name}</h4>
+                              <p className="text-xs text-muted truncate">Subject: &quot;{tpl.subject}&quot;</p>
+                            </div>
+                            <span className="text-xs px-2.5 py-1 rounded-full bg-coreconx/10 text-coreconx-light flex-shrink-0">
+                              {isExpanded ? "Close" : "View"}
+                            </span>
+                          </button>
+                          {isExpanded && (
+                            <div className="px-5 pb-5 space-y-3">
+                              {/* Subject & Body Preview */}
+                              <div className="bg-background rounded-lg border border-border overflow-hidden">
+                                <div className="px-4 py-3 border-b border-border bg-card-hover/50">
+                                  <div className="text-xs text-muted space-y-1">
+                                    <p><span className="font-medium text-foreground">Subject:</span> {tpl.subject}</p>
+                                    {tpl.notes && (
+                                      <p><span className="font-medium text-foreground">Used for:</span> {tpl.notes}</p>
+                                    )}
+                                    {tpl.variables && (
+                                      <p><span className="font-medium text-foreground">Variables:</span> <code className="text-coreconx-light">{tpl.variables}</code></p>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="p-4">
+                                  <p className="text-sm text-foreground leading-relaxed">{tpl.bodyPreview}</p>
                                 </div>
                               </div>
-                              {/* Email body */}
-                              <div className="p-4">
-                                <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{tpl.body}</pre>
-                              </div>
+
+                              {/* A/B Variations */}
+                              {(tpl.variationA || tpl.variationB) && (
+                                <div className="grid grid-cols-2 gap-3">
+                                  {tpl.variationA && (
+                                    <div className="bg-background rounded-lg border border-border p-3">
+                                      <p className="text-xs font-medium text-coreconx-light mb-1">Variation A</p>
+                                      <p className="text-xs text-muted">{tpl.variationA}</p>
+                                    </div>
+                                  )}
+                                  {tpl.variationB && (
+                                    <div className="bg-background rounded-lg border border-border p-3">
+                                      <p className="text-xs font-medium text-coreconx-light mb-1">Variation B</p>
+                                      <p className="text-xs text-muted">{tpl.variationB}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ))}
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       )}
 

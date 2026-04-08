@@ -179,6 +179,60 @@ app.get('/api/calendar/events', (req, res) => {
   }
 });
 
+// ==================== Email Templates (Google Sheets) ====================
+
+const SHEET_ID = '1arbZpTV9DSVS8w-4FA8XhV59x_DWxpGIP1dI5vxX3ak';
+const TEMPLATE_TABS = [
+  { name: 'Onboarding', sheet: 'Tpl — Onboarding', icon: '📥', gid: '1728656310' },
+  { name: 'Transactional', sheet: 'Tpl — Transactional', icon: '💳', gid: '304550879' },
+  { name: 'Engagement', sheet: 'Tpl — Engagement', icon: '📊', gid: '907890264' },
+  { name: 'Marketplace', sheet: 'Tpl — Marketplace', icon: '🤝', gid: '380872628' },
+  { name: 'Support', sheet: 'Tpl — Support', icon: '🎧', gid: '1087175277' },
+  { name: 'Outreach', sheet: 'Tpl — Outreach', icon: '📨', gid: '1856657472' },
+];
+
+app.get('/api/templates', (req, res) => {
+  const categories = [];
+
+  for (const tab of TEMPLATE_TABS) {
+    const raw = gog(`sheets get ${SHEET_ID} "${tab.sheet}!A1:G50" -p`);
+    if (!raw) {
+      categories.push({ name: tab.name, icon: tab.icon, sheetUrl: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit#gid=${tab.gid}`, templates: [] });
+      continue;
+    }
+
+    const lines = raw.split('\n').filter(l => l.trim());
+    if (lines.length < 2) {
+      categories.push({ name: tab.name, icon: tab.icon, sheetUrl: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit#gid=${tab.gid}`, templates: [] });
+      continue;
+    }
+
+    const headers = lines[0].split('\t').map(h => h.trim());
+    const templates = lines.slice(1).map(line => {
+      const cols = line.split('\t');
+      return {
+        name: (cols[0] || '').trim(),
+        subject: (cols[1] || '').trim(),
+        bodyPreview: (cols[2] || '').trim(),
+        variationA: (cols[3] || '').trim(),
+        variationB: (cols[4] || '').trim(),
+        variables: (cols[5] || '').trim(),
+        notes: (cols[6] || '').trim(),
+      };
+    }).filter(t => t.name);
+
+    categories.push({
+      name: tab.name,
+      icon: tab.icon,
+      count: templates.length,
+      sheetUrl: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit#gid=${tab.gid}`,
+      templates,
+    });
+  }
+
+  res.json(categories);
+});
+
 // ==================== System Status ====================
 
 app.get('/api/status', (req, res) => {
