@@ -26,13 +26,25 @@ export default function Dashboard() {
   const [apiOnline, setApiOnline] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const [sentCount, setSentCount] = useState(0);
+  const [taskCount, setTaskCount] = useState(0);
+  const [inboxCount, setInboxCount] = useState(0);
+
   useEffect(() => {
     async function load() {
-      const data = await apiFetch<Company[]>("/api/crm/companies");
-      if (data) {
-        setCompanies(data);
+      const [crmData, sentData, inboxData, taskData] = await Promise.all([
+        apiFetch<Company[]>("/api/crm/companies"),
+        apiFetch<unknown[]>("/api/emails/sent"),
+        apiFetch<unknown[]>("/api/emails/inbox"),
+        apiFetch<unknown[]>("/api/tasks"),
+      ]);
+      if (crmData) {
+        setCompanies(crmData);
         setApiOnline(true);
       }
+      if (sentData && Array.isArray(sentData)) setSentCount(sentData.length);
+      if (inboxData && Array.isArray(inboxData)) setInboxCount(inboxData.length);
+      if (taskData && Array.isArray(taskData)) setTaskCount(taskData.length);
       setLoading(false);
     }
     load();
@@ -93,22 +105,22 @@ export default function Dashboard() {
         />
         <StatCard
           title="Emails Sent"
-          value={0}
-          subtitle="Campaign not started"
+          value={apiOnline ? sentCount : "—"}
+          subtitle={apiOnline ? (inboxCount > 0 ? `${inboxCount} unread in inbox` : "Inbox clear") : "Connecting..."}
           icon={<Mail size={20} />}
           href="/emails"
         />
         <StatCard
           title="Active Tasks"
-          value={3}
-          subtitle="Doc updates, research, dashboard"
+          value={apiOnline ? taskCount : "—"}
+          subtitle={apiOnline ? "From Linear" : "Connecting..."}
           icon={<CheckSquare size={20} />}
           href="/tasks"
         />
         <StatCard
           title="Agents Online"
-          value={1}
-          subtitle="Chuck (Opus 4)"
+          value={apiOnline ? 1 : "—"}
+          subtitle="Chuck (Opus 4.6)"
           icon={<Bot size={20} />}
           href="/agents"
         />
