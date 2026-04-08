@@ -58,7 +58,7 @@ export function Sidebar() {
           <div className="w-8 h-8 rounded-lg bg-coreconx flex items-center justify-center">
             <span className="text-white font-bold text-sm">C</span>
           </div>
-          <span className="text-foreground font-semibold">CoreConX MC</span>
+          <span className="text-foreground font-semibold">CCX MC</span>
         </Link>
       </div>
 

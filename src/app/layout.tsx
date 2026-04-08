@@ -15,13 +15,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CoreConX MC",
+  title: "CCX MC",
   description: "CoreConX Mission Control — CRM, tasks, email hub, and agent status",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "CoreConX MC",
+    title: "CCX MC",
   },
   other: {
     "mobile-web-app-capable": "yes",
