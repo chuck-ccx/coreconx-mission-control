@@ -1,4 +1,8 @@
-import { Bot, Cpu, Activity, Zap } from "lucide-react";
+"use client";
+
+import { useState, useEffect } from "react";
+import { Bot, Cpu, Activity, Zap, Loader2, Wifi, WifiOff } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 
 interface Agent {
   name: string;
@@ -9,13 +13,25 @@ interface Agent {
   tasksCompleted: number;
 }
 
-const agents: Agent[] = [
+interface ApiStatus {
+  status: string;
+  uptime: number;
+  memory: string;
+  services: {
+    gmail: string;
+    linear: string;
+    sheets: string;
+  };
+  timestamp: string;
+}
+
+const defaultAgents: Agent[] = [
   {
     name: "Chuck",
     role: "COO — Operations & Strategy",
-    model: "Claude Opus 4",
+    model: "Claude Opus 4.6",
     status: "online",
-    currentTask: "Building Mission Control dashboard",
+    currentTask: "Wiring Mission Control to live APIs",
     tasksCompleted: 47,
   },
   {
@@ -50,6 +66,24 @@ const techStack = [
 ];
 
 export default function AgentsPage() {
+  const [agents] = useState<Agent[]>(defaultAgents);
+  const [apiStatus, setApiStatus] = useState<ApiStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch<ApiStatus>("/api/status").then((data) => {
+      if (data) setApiStatus(data);
+      setLoading(false);
+    });
+  }, []);
+
+  const formatUptime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <div>
@@ -119,6 +153,40 @@ export default function AgentsPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Live Service Status */}
+      <div className="bg-card border border-border rounded-xl p-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">Service Status</h2>
+          {loading ? (
+            <Loader2 size={16} className="text-muted animate-spin" />
+          ) : apiStatus ? (
+            <div className="flex items-center gap-2">
+              <Wifi size={14} className="text-success" />
+              <span className="text-xs text-success font-medium">API Online</span>
+              <span className="text-xs text-muted">— {formatUptime(apiStatus.uptime)} uptime, {apiStatus.memory}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <WifiOff size={14} className="text-danger" />
+              <span className="text-xs text-danger font-medium">API Offline</span>
+            </div>
+          )}
+        </div>
+        {apiStatus && (
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            {Object.entries(apiStatus.services).map(([name, status]) => (
+              <div key={name} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background">
+                <div className={`w-2.5 h-2.5 rounded-full ${status === "connected" ? "bg-success" : "bg-danger"}`} />
+                <div>
+                  <p className="text-sm font-medium text-foreground capitalize">{name}</p>
+                  <p className="text-xs text-muted">{status}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Mission Statement */}
