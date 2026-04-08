@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Mail,
   Send,
@@ -8,8 +8,10 @@ import {
   FileText,
   ExternalLink,
   ArrowRight,
+  Loader2,
 } from "lucide-react";
 import { Modal } from "@/components/modal";
+import { apiFetch } from "@/lib/api";
 
 interface CampaignEmail {
   id: number;
@@ -19,6 +21,17 @@ interface CampaignEmail {
   status: string;
   description: string;
   body: string;
+}
+
+interface GmailMessage {
+  id?: string;
+  threadId?: string;
+  subject?: string;
+  from?: string;
+  to?: string;
+  date?: string;
+  snippet?: string;
+  labelIds?: string[];
 }
 
 const campaignEmails: CampaignEmail[] = [
@@ -222,13 +235,28 @@ const legalDocs = [
   ]},
 ];
 
-const sentEmails: { to: string; subject: string; date: string; status: string }[] = [];
-
 export default function EmailsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("Campaign");
   const [selectedEmail, setSelectedEmail] = useState<CampaignEmail | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<TemplateCategory | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [sentEmails, setSentEmails] = useState<GmailMessage[]>([]);
+  const [inboxEmails, setInboxEmails] = useState<GmailMessage[]>([]);
+  const [loadingSent, setLoadingSent] = useState(false);
+  const [loadingInbox, setLoadingInbox] = useState(false);
+
+  useEffect(() => {
+    setLoadingSent(true);
+    setLoadingInbox(true);
+    apiFetch<GmailMessage[]>("/api/emails/sent").then((data) => {
+      if (data && Array.isArray(data)) setSentEmails(data);
+      setLoadingSent(false);
+    });
+    apiFetch<GmailMessage[]>("/api/emails/inbox").then((data) => {
+      if (data && Array.isArray(data)) setInboxEmails(data);
+      setLoadingInbox(false);
+    });
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -260,13 +288,13 @@ export default function EmailsPage() {
         {[
           {
             label: "Emails Sent",
-            value: "0",
+            value: loadingSent ? "..." : String(sentEmails.length),
             icon: <Send size={16} />,
-            sub: "Campaign not launched",
+            sub: sentEmails.length === 0 ? "No emails sent yet" : "From Gmail",
           },
           {
-            label: "Inbox",
-            value: "—",
+            label: "Inbox (Unread)",
+            value: loadingInbox ? "..." : String(inboxEmails.length),
             icon: <Inbox size={16} />,
             sub: "Monitoring 10 aliases",
           },
@@ -422,8 +450,13 @@ export default function EmailsPage() {
       {activeTab === "Sent" && (
         <div className="bg-card border border-border rounded-xl p-5">
           <h2 className="text-lg font-semibold text-foreground">Sent Emails</h2>
-          <p className="text-xs text-muted mt-1">Track all outgoing emails from CoreConX</p>
-          {sentEmails.length === 0 ? (
+          <p className="text-xs text-muted mt-1">Live from Gmail — all outgoing emails from CoreConX</p>
+          {loadingSent ? (
+            <div className="mt-8 text-center py-12">
+              <Loader2 size={32} className="mx-auto text-muted animate-spin" />
+              <p className="text-muted mt-4">Loading sent emails...</p>
+            </div>
+          ) : sentEmails.length === 0 ? (
             <div className="mt-8 text-center py-12">
               <Send size={40} className="mx-auto text-muted/30" />
               <p className="text-muted mt-4">No emails sent yet</p>
@@ -432,13 +465,16 @@ export default function EmailsPage() {
           ) : (
             <div className="mt-4 space-y-2">
               {sentEmails.map((email, i) => (
-                <div key={i} className="flex items-center gap-4 p-3 rounded-lg border border-border bg-background">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">{email.subject}</p>
-                    <p className="text-xs text-muted">To: {email.to}</p>
+                <div key={email.id || i} className="flex items-center gap-4 p-3 rounded-lg border border-border bg-background hover:border-coreconx/40 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{email.subject || "(no subject)"}</p>
+                    <p className="text-xs text-muted truncate">To: {email.to || "—"}</p>
+                    {email.snippet && (
+                      <p className="text-xs text-muted/70 mt-1 truncate">{email.snippet}</p>
+                    )}
                   </div>
-                  <span className="text-xs text-muted">{email.date}</span>
-                  <span className="text-xs px-2 py-1 rounded bg-success/20 text-success">{email.status}</span>
+                  <span className="text-xs text-muted whitespace-nowrap">{email.date || "—"}</span>
+                  <span className="text-xs px-2 py-1 rounded bg-success/20 text-success">Sent</span>
                 </div>
               ))}
             </div>
