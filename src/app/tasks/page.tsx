@@ -262,7 +262,11 @@ export default function TasksPage() {
                     <button
                       key={issue.id}
                       onClick={() => setSelectedIssue(issue)}
-                      className={`w-full text-left bg-card border border-border rounded-lg p-4 hover:border-coreconx/40 transition-colors cursor-pointer ${isUpdating ? "opacity-50" : ""}`}
+                      className={`w-full text-left bg-card border rounded-lg p-4 hover:border-coreconx/40 transition-colors cursor-pointer ${isUpdating ? "opacity-50" : ""} ${
+                        col.id === "in-progress" && getAssigneeName(issue)?.includes("Chuck")
+                          ? "border-coreconx/60 shadow-[0_0_12px_rgba(59,130,246,0.25)] ring-1 ring-coreconx/30 animate-pulse-subtle"
+                          : "border-border"
+                      }`}
                     >
                       <div className="flex items-start justify-between">
                         <span className="text-xs font-mono text-muted">{issue.identifier}</span>

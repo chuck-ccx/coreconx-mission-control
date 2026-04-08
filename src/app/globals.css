@@ -58,3 +58,12 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--muted);
 }
+
+/* Active task pulse for Chuck's in-progress work */
+@keyframes pulse-subtle {
+  0%, 100% { box-shadow: 0 0 12px rgba(10, 77, 44, 0.25); }
+  50% { box-shadow: 0 0 20px rgba(10, 77, 44, 0.45); }
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 2.5s ease-in-out infinite;
+}
