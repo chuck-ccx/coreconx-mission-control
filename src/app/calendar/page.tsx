@@ -1,4 +1,8 @@
-import { Calendar, Clock, Repeat, Bell } from "lucide-react";
+"use client";
+
+import { useState, useEffect } from "react";
+import { Calendar, Clock, Repeat, Bell, Loader2 } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 
 interface ScheduledTask {
   id: string;
@@ -8,6 +12,16 @@ interface ScheduledTask {
   type: "cron" | "one-time" | "recurring";
   status: "active" | "paused" | "expired";
   description: string;
+}
+
+interface CalendarEvent {
+  id?: string;
+  summary?: string;
+  start?: { dateTime?: string; date?: string };
+  end?: { dateTime?: string; date?: string };
+  location?: string;
+  description?: string;
+  status?: string;
 }
 
 const scheduledTasks: ScheduledTask[] = [
@@ -96,6 +110,16 @@ const milestoneStatusColors: Record<string, string> = {
 };
 
 export default function CalendarPage() {
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [loadingCal, setLoadingCal] = useState(true);
+
+  useEffect(() => {
+    apiFetch<CalendarEvent[]>("/api/calendar/events").then((data) => {
+      if (data && Array.isArray(data)) setCalendarEvents(data);
+      setLoadingCal(false);
+    });
+  }, []);
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <div>
@@ -151,6 +175,59 @@ export default function CalendarPage() {
             );
           })}
         </div>
+      </div>
+
+      {/* Google Calendar Events */}
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="text-lg font-semibold text-foreground">
+          Upcoming Events
+        </h2>
+        <p className="text-xs text-muted mt-1">Live from Google Calendar</p>
+        {loadingCal ? (
+          <div className="mt-4 flex items-center gap-2 text-muted">
+            <Loader2 size={16} className="animate-spin" />
+            <span className="text-sm">Loading calendar...</span>
+          </div>
+        ) : calendarEvents.length === 0 ? (
+          <p className="mt-4 text-sm text-muted">No upcoming events</p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {calendarEvents.map((event, i) => {
+              const startStr = event.start?.dateTime || event.start?.date || "";
+              const startDate = startStr ? new Date(startStr) : null;
+              return (
+                <div
+                  key={event.id || i}
+                  className="flex items-start gap-4 p-4 rounded-lg border border-border bg-background"
+                >
+                  <div className="flex-shrink-0 text-center min-w-[50px]">
+                    {startDate && (
+                      <>
+                        <p className="text-xs font-mono text-muted">
+                          {startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </p>
+                        <p className="text-xs font-mono text-muted">
+                          {startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-foreground">
+                      {event.summary || "(no title)"}
+                    </h3>
+                    {event.location && (
+                      <p className="text-xs text-muted mt-0.5">{event.location}</p>
+                    )}
+                    {event.description && (
+                      <p className="text-xs text-muted/70 mt-1 line-clamp-2">{event.description}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Roadmap / Milestones */}
