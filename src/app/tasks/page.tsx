@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { CheckSquare, Circle, Clock, CheckCircle2, Loader2, RefreshCw, ChevronRight } from "lucide-react";
+import { CheckSquare, Circle, Clock, CheckCircle2, Loader2, RefreshCw, ChevronRight, ThumbsUp, Trash2, X } from "lucide-react";
 import { Modal } from "@/components/modal";
 import { apiFetch } from "@/lib/api";
 
@@ -60,6 +60,9 @@ export default function TasksPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<LinearIssue | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [approving, setApproving] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchData = useCallback(async (isRefresh = false) => {
@@ -111,6 +114,40 @@ export default function TasksPage() {
       }
     }
     setUpdating(null);
+  };
+
+  const isApproved = (issue: LinearIssue) =>
+    issue.labels?.nodes?.some(l => l.name === "Approved") ?? false;
+
+  const approveTask = async (issue: LinearIssue) => {
+    setApproving(issue.id);
+    const approved = isApproved(issue);
+    const endpoint = approved ? "unapprove" : "approve";
+
+    const result = await apiFetch<{ approved?: boolean; unapproved?: boolean }>(`/api/tasks/${issue.id}/${endpoint}`, {
+      method: "POST",
+    });
+
+    if (result) {
+      // Refresh data to get updated labels
+      await fetchData(true);
+    }
+    setApproving(null);
+  };
+
+  const deleteTask = async (issue: LinearIssue) => {
+    setDeleting(issue.id);
+
+    const result = await apiFetch<{ deleted: boolean }>(`/api/tasks/${issue.id}`, {
+      method: "DELETE",
+    });
+
+    if (result?.deleted) {
+      setIssues(prev => prev.filter(i => i.id !== issue.id));
+      if (selectedIssue?.id === issue.id) setSelectedIssue(null);
+    }
+    setDeleting(null);
+    setConfirmDelete(null);
   };
 
   const issuesByColumn = (colId: ColumnId) =>
@@ -207,6 +244,49 @@ export default function TasksPage() {
                           ))}
                         </div>
                       )}
+                      {/* Approve & Delete buttons */}
+                      <div className="flex items-center gap-2 mt-3 pt-2 border-t border-border">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); approveTask(issue); }}
+                          disabled={approving === issue.id}
+                          className={`flex items-center gap-1 px-2 py-1 text-[10px] rounded-md border transition-colors ${
+                            isApproved(issue)
+                              ? "bg-success/20 border-success/40 text-success font-medium"
+                              : "border-border text-muted hover:border-success/40 hover:text-success"
+                          } disabled:opacity-50`}
+                          title={isApproved(issue) ? "Revoke approval" : "Approve — Chuck will work on this"}
+                        >
+                          {approving === issue.id ? <Loader2 size={10} className="animate-spin" /> : <ThumbsUp size={10} />}
+                          {isApproved(issue) ? "Approved" : "Approve"}
+                        </button>
+                        {confirmDelete === issue.id ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); deleteTask(issue); }}
+                              disabled={deleting === issue.id}
+                              className="flex items-center gap-1 px-2 py-1 text-[10px] rounded-md border border-danger/40 bg-danger/20 text-danger font-medium disabled:opacity-50"
+                            >
+                              {deleting === issue.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                              Confirm
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setConfirmDelete(null); }}
+                              className="flex items-center px-1.5 py-1 text-[10px] rounded-md border border-border text-muted hover:text-foreground"
+                            >
+                              <X size={10} />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setConfirmDelete(issue.id); }}
+                            className="flex items-center gap-1 px-2 py-1 text-[10px] rounded-md border border-border text-muted hover:border-danger/40 hover:text-danger transition-colors"
+                            title="Delete task"
+                          >
+                            <Trash2 size={10} />
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </button>
                   );
                 })}
@@ -285,6 +365,51 @@ export default function TasksPage() {
                 ))}
               </div>
             )}
+
+            {/* Approve & Delete Actions */}
+            <div className="bg-background rounded-lg p-4 border border-border">
+              <h4 className="text-xs font-medium text-muted mb-3">Actions</h4>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => approveTask(selectedIssue)}
+                  disabled={approving === selectedIssue.id}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg border transition-colors ${
+                    isApproved(selectedIssue)
+                      ? "bg-success/20 border-success/40 text-success font-medium"
+                      : "border-border text-muted hover:border-success/40 hover:text-success"
+                  } disabled:opacity-50`}
+                >
+                  {approving === selectedIssue.id ? <Loader2 size={14} className="animate-spin" /> : <ThumbsUp size={14} />}
+                  {isApproved(selectedIssue) ? "Approved — Chuck will work on this" : "Approve for Chuck"}
+                </button>
+                {confirmDelete === selectedIssue.id ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => deleteTask(selectedIssue)}
+                      disabled={deleting === selectedIssue.id}
+                      className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-danger/40 bg-danger/20 text-danger font-medium disabled:opacity-50"
+                    >
+                      {deleting === selectedIssue.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                      Confirm Delete
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(null)}
+                      className="flex items-center px-3 py-2 text-sm rounded-lg border border-border text-muted hover:text-foreground"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmDelete(selectedIssue.id)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-border text-muted hover:border-danger/40 hover:text-danger transition-colors"
+                  >
+                    <Trash2 size={14} />
+                    Delete Task
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </Modal>

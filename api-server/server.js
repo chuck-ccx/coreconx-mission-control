@@ -205,6 +205,98 @@ app.patch('/api/tasks/:id', (req, res) => {
   res.json(result.data.issueUpdate.issue);
 });
 
+// ==================== Linear — Delete (Cancel) Issue ====================
+
+app.delete('/api/tasks/:id', (req, res) => {
+  if (!process.env.LINEAR_API_KEY) {
+    return res.status(500).json({ error: 'LINEAR_API_KEY not set' });
+  }
+
+  const { id } = req.params;
+
+  // First get the cancelled state
+  const statesResult = linearQuery(`{ workflowStates(filter: { type: { eq: "cancelled" } }) { nodes { id name } } }`);
+  const cancelledState = statesResult?.data?.workflowStates?.nodes?.[0];
+  if (!cancelledState) {
+    return res.status(500).json({ error: 'Could not find cancelled state' });
+  }
+
+  const mutation = `mutation { issueUpdate(id: "${id}", input: { stateId: "${cancelledState.id}" }) { success issue { id identifier title } } }`;
+  const result = linearQuery(mutation);
+  if (!result || !result.data?.issueUpdate?.success) {
+    return res.status(500).json({ error: 'Failed to delete task', details: result });
+  }
+
+  res.json({ deleted: true, issue: result.data.issueUpdate.issue });
+});
+
+// ==================== Linear — Approve Issue (add label) ====================
+
+app.post('/api/tasks/:id/approve', (req, res) => {
+  if (!process.env.LINEAR_API_KEY) {
+    return res.status(500).json({ error: 'LINEAR_API_KEY not set' });
+  }
+
+  const { id } = req.params;
+
+  // Find or create the "Approved" label
+  let labelResult = linearQuery(`{ issueLabels(filter: { name: { eq: "Approved" } }) { nodes { id name } } }`);
+  let labelId = labelResult?.data?.issueLabels?.nodes?.[0]?.id;
+
+  if (!labelId) {
+    // Create the label
+    const createLabel = linearQuery(`mutation { issueLabelCreate(input: { name: "Approved", color: "#22c55e" }) { success issueLabel { id } } }`);
+    labelId = createLabel?.data?.issueLabelCreate?.issueLabel?.id;
+  }
+
+  if (!labelId) {
+    return res.status(500).json({ error: 'Could not find or create Approved label' });
+  }
+
+  // Get current labels on the issue
+  const issueResult = linearQuery(`{ issue(id: "${id}") { labels { nodes { id } } } }`);
+  const currentLabelIds = (issueResult?.data?.issue?.labels?.nodes || []).map(l => l.id);
+
+  // Add approved label
+  if (!currentLabelIds.includes(labelId)) {
+    currentLabelIds.push(labelId);
+  }
+
+  const labelIdList = currentLabelIds.map(lid => `"${lid}"`).join(', ');
+  const mutation = `mutation { issueUpdate(id: "${id}", input: { labelIds: [${labelIdList}] }) { success issue { id identifier title labels { nodes { name color } } } } }`;
+  const result = linearQuery(mutation);
+  if (!result || !result.data?.issueUpdate?.success) {
+    return res.status(500).json({ error: 'Failed to approve task', details: result });
+  }
+
+  res.json({ approved: true, issue: result.data.issueUpdate.issue });
+});
+
+// ==================== Linear — Unapprove Issue (remove label) ====================
+
+app.post('/api/tasks/:id/unapprove', (req, res) => {
+  if (!process.env.LINEAR_API_KEY) {
+    return res.status(500).json({ error: 'LINEAR_API_KEY not set' });
+  }
+
+  const { id } = req.params;
+
+  // Find the "Approved" label
+  const labelResult = linearQuery(`{ issueLabels(filter: { name: { eq: "Approved" } }) { nodes { id } } }`);
+  const labelId = labelResult?.data?.issueLabels?.nodes?.[0]?.id;
+  if (!labelId) return res.json({ unapproved: true }); // no label exists, nothing to remove
+
+  // Get current labels on the issue
+  const issueResult = linearQuery(`{ issue(id: "${id}") { labels { nodes { id } } } }`);
+  const currentLabelIds = (issueResult?.data?.issue?.labels?.nodes || []).map(l => l.id).filter(lid => lid !== labelId);
+
+  const labelIdList = currentLabelIds.map(lid => `"${lid}"`).join(', ');
+  const mutation = `mutation { issueUpdate(id: "${id}", input: { labelIds: [${labelIdList}] }) { success } }`;
+  linearQuery(mutation);
+
+  res.json({ unapproved: true });
+});
+
 // ==================== Google Calendar ====================
 
 app.get('/api/calendar/events', (req, res) => {
