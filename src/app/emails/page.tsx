@@ -9,6 +9,9 @@ import {
   ExternalLink,
   ArrowRight,
   Loader2,
+  RefreshCw,
+  Eye,
+  X,
 } from "lucide-react";
 import { Modal } from "@/components/modal";
 import { apiFetch } from "@/lib/api";
@@ -23,15 +26,33 @@ interface CampaignEmail {
   body: string;
 }
 
-interface GmailMessage {
+interface GmailThread {
   id?: string;
-  threadId?: string;
   subject?: string;
   from?: string;
   to?: string;
   date?: string;
   snippet?: string;
-  labelIds?: string[];
+  labels?: string[];
+  messageCount?: number;
+}
+
+interface GmailThreadDetail {
+  id?: string;
+  messages?: Array<{
+    id?: string;
+    from?: string;
+    to?: string;
+    date?: string;
+    subject?: string;
+    body?: string;
+    snippet?: string;
+  }>;
+}
+
+interface GmailSentResponse {
+  threads?: GmailThread[];
+  nextPageToken?: string;
 }
 
 const campaignEmails: CampaignEmail[] = [
@@ -172,25 +193,51 @@ export default function EmailsPage() {
   const [selectedEmail, setSelectedEmail] = useState<CampaignEmail | null>(null);
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
-  const [sentEmails, setSentEmails] = useState<GmailMessage[]>([]);
-  const [inboxEmails, setInboxEmails] = useState<GmailMessage[]>([]);
+  const [sentEmails, setSentEmails] = useState<GmailThread[]>([]);
+  const [inboxEmails, setInboxEmails] = useState<GmailThread[]>([]);
   const [templateCategories, setTemplateCategories] = useState<TemplateCategory[]>([]);
   const [loadingSent, setLoadingSent] = useState(false);
   const [loadingInbox, setLoadingInbox] = useState(false);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [sentAliasFilter, setSentAliasFilter] = useState<string>("all");
+  const [selectedThread, setSelectedThread] = useState<GmailThreadDetail | null>(null);
+  const [loadingThread, setLoadingThread] = useState(false);
+  const [refreshingSent, setRefreshingSent] = useState(false);
+
+  const fetchSent = async () => {
+    setLoadingSent(true);
+    const data = await apiFetch<GmailSentResponse>("/api/emails/sent");
+    if (data?.threads && Array.isArray(data.threads)) setSentEmails(data.threads);
+    else if (data && Array.isArray(data)) setSentEmails(data as unknown as GmailThread[]);
+    setLoadingSent(false);
+  };
+
+  const fetchInbox = async () => {
+    setLoadingInbox(true);
+    const data = await apiFetch<GmailSentResponse>("/api/emails/inbox");
+    if (data?.threads && Array.isArray(data.threads)) setInboxEmails(data.threads);
+    else if (data && Array.isArray(data)) setInboxEmails(data as unknown as GmailThread[]);
+    setLoadingInbox(false);
+  };
+
+  const refreshSent = async () => {
+    setRefreshingSent(true);
+    await fetchSent();
+    setRefreshingSent(false);
+  };
+
+  const openThread = async (threadId: string) => {
+    setLoadingThread(true);
+    setSelectedThread(null);
+    const data = await apiFetch<GmailThreadDetail>(`/api/emails/thread/${threadId}`);
+    if (data) setSelectedThread(data);
+    setLoadingThread(false);
+  };
 
   useEffect(() => {
-    setLoadingSent(true);
-    setLoadingInbox(true);
+    fetchSent();
+    fetchInbox();
     setLoadingTemplates(true);
-    apiFetch<GmailMessage[]>("/api/emails/sent").then((data) => {
-      if (data && Array.isArray(data)) setSentEmails(data);
-      setLoadingSent(false);
-    });
-    apiFetch<GmailMessage[]>("/api/emails/inbox").then((data) => {
-      if (data && Array.isArray(data)) setInboxEmails(data);
-      setLoadingInbox(false);
-    });
     apiFetch<TemplateCategory[]>("/api/templates").then((data) => {
       if (data && Array.isArray(data)) setTemplateCategories(data);
       setLoadingTemplates(false);
@@ -466,39 +513,131 @@ export default function EmailsPage() {
 
       {/* Sent Tab */}
       {activeTab === "Sent" && (
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="text-lg font-semibold text-foreground">Sent Emails</h2>
-          <p className="text-xs text-muted mt-1">Live from Gmail — all outgoing emails from CoreConX</p>
-          {loadingSent ? (
-            <div className="mt-8 text-center py-12">
-              <Loader2 size={32} className="mx-auto text-muted animate-spin" />
-              <p className="text-muted mt-4">Loading sent emails...</p>
-            </div>
-          ) : sentEmails.length === 0 ? (
-            <div className="mt-8 text-center py-12">
-              <Send size={40} className="mx-auto text-muted/30" />
-              <p className="text-muted mt-4">No emails sent yet</p>
-              <p className="text-xs text-muted mt-1">Emails will appear here once the founding partner campaign launches</p>
-            </div>
-          ) : (
-            <div className="mt-4 space-y-2">
-              {sentEmails.map((email, i) => (
-                <div key={email.id || i} className="flex items-center gap-4 p-3 rounded-lg border border-border bg-background hover:border-coreconx/40 transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{email.subject || "(no subject)"}</p>
-                    <p className="text-xs text-muted truncate">To: {email.to || "—"}</p>
-                    {email.snippet && (
-                      <p className="text-xs text-muted/70 mt-1 truncate">{email.snippet}</p>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted whitespace-nowrap">{email.date || "—"}</span>
-                  <span className="text-xs px-2 py-1 rounded bg-success/20 text-success">Sent</span>
-                </div>
-              ))}
-            </div>
-          )}
+        <div className="space-y-4">
+          {/* Alias filter bar */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setSentAliasFilter("all")}
+              className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+                sentAliasFilter === "all"
+                  ? "bg-coreconx text-white"
+                  : "bg-card border border-border text-muted hover:text-foreground"
+              }`}
+            >
+              All ({sentEmails.length})
+            </button>
+            {aliases.map((alias) => {
+              const count = sentEmails.filter((e) => e.from?.includes(alias.split("@")[0])).length;
+              if (count === 0) return null;
+              return (
+                <button
+                  key={alias}
+                  onClick={() => setSentAliasFilter(alias)}
+                  className={`text-xs px-3 py-1.5 rounded-full font-mono transition-colors ${
+                    sentAliasFilter === alias
+                      ? "bg-coreconx text-white"
+                      : "bg-card border border-border text-muted hover:text-foreground"
+                  }`}
+                >
+                  {alias.split("@")[0]} ({count})
+                </button>
+              );
+            })}
+            <button
+              onClick={refreshSent}
+              disabled={refreshingSent}
+              className="ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-card border border-border text-muted hover:text-foreground transition-colors"
+            >
+              <RefreshCw size={12} className={refreshingSent ? "animate-spin" : ""} />
+              Refresh
+            </button>
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-5">
+            <h2 className="text-lg font-semibold text-foreground">Sent Emails</h2>
+            <p className="text-xs text-muted mt-1">Live from Gmail — all outgoing emails from CoreConX</p>
+            {loadingSent ? (
+              <div className="mt-8 text-center py-12">
+                <Loader2 size={32} className="mx-auto text-muted animate-spin" />
+                <p className="text-muted mt-4">Loading sent emails...</p>
+              </div>
+            ) : sentEmails.length === 0 ? (
+              <div className="mt-8 text-center py-12">
+                <Send size={40} className="mx-auto text-muted/30" />
+                <p className="text-muted mt-4">No emails sent yet</p>
+                <p className="text-xs text-muted mt-1">Emails will appear here once the founding partner campaign launches</p>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-2">
+                {sentEmails
+                  .filter((e) => sentAliasFilter === "all" || e.from?.includes(sentAliasFilter.split("@")[0]))
+                  .map((email, i) => (
+                  <button
+                    key={email.id || i}
+                    onClick={() => email.id && openThread(email.id)}
+                    className="w-full text-left flex items-center gap-4 p-3 rounded-lg border border-border bg-background hover:border-coreconx/40 transition-colors cursor-pointer"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{email.subject || "(no subject)"}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-xs text-muted truncate">From: {email.from || "—"}</p>
+                        {email.messageCount && email.messageCount > 1 && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-card-hover text-muted">{email.messageCount} msgs</span>
+                        )}
+                      </div>
+                      {email.snippet && (
+                        <p className="text-xs text-muted/70 mt-1 truncate">{email.snippet}</p>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted whitespace-nowrap">{email.date || "—"}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs px-2 py-1 rounded bg-success/20 text-success">Sent</span>
+                      <Eye size={14} className="text-muted" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
+
+      {/* Thread Detail Modal */}
+      <Modal
+        open={!!selectedThread || loadingThread}
+        onClose={() => { setSelectedThread(null); setLoadingThread(false); }}
+        title={selectedThread?.messages?.[0]?.subject || "Email Thread"}
+        subtitle={selectedThread?.messages?.[0]?.from ? `From: ${selectedThread.messages[0].from}` : ""}
+      >
+        {loadingThread ? (
+          <div className="text-center py-8">
+            <Loader2 size={24} className="mx-auto text-muted animate-spin" />
+            <p className="text-muted mt-3 text-sm">Loading thread...</p>
+          </div>
+        ) : selectedThread?.messages ? (
+          <div className="space-y-4">
+            {selectedThread.messages.map((msg, i) => (
+              <div key={msg.id || i} className="bg-background rounded-lg border border-border overflow-hidden">
+                <div className="px-4 py-3 border-b border-border bg-card-hover/50">
+                  <div className="text-xs text-muted space-y-1">
+                    <p><span className="font-medium text-foreground">From:</span> {msg.from || "—"}</p>
+                    <p><span className="font-medium text-foreground">To:</span> {msg.to || "—"}</p>
+                    <p><span className="font-medium text-foreground">Date:</span> {msg.date || "—"}</p>
+                    {msg.subject && <p><span className="font-medium text-foreground">Subject:</span> {msg.subject}</p>}
+                  </div>
+                </div>
+                <div className="p-4">
+                  <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">
+                    {msg.body || msg.snippet || "(no content)"}
+                  </pre>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted text-sm">No messages found in this thread.</p>
+        )}
+      </Modal>
 
       {/* Legal Docs Tab */}
       {activeTab === "Legal Docs" && (
