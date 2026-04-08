@@ -10,6 +10,8 @@ import {
   Bot,
   Calendar,
   MessageSquare,
+  Shield,
+  AlertTriangle,
 } from "lucide-react";
 
 const navItems = [
@@ -20,6 +22,8 @@ const navItems = [
   { href: "/agents", label: "Agents", icon: Bot },
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/community", label: "Community", icon: MessageSquare },
+  { href: "/chat", label: "Secure Chat", icon: Shield },
+  { href: "/errors", label: "Errors", icon: AlertTriangle },
 ];
 
 export function Sidebar() {
