@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import {
   Users,
   Mail,
@@ -10,26 +13,82 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { StatCard } from "@/components/stat-card";
+import { apiFetch } from "@/lib/api";
+
+interface Company {
+  "Company Name": string;
+  "Lead Status": string;
+  [key: string]: string;
+}
 
 export default function Dashboard() {
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [apiOnline, setApiOnline] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      const data = await apiFetch<Company[]>("/api/crm/companies");
+      if (data) {
+        setCompanies(data);
+        setApiOnline(true);
+      }
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  // Count pipeline stages from live data
+  const pipelineCounts = {
+    Research: 0,
+    "Cold Outreach": 0,
+    Warm: 0,
+    Demo: 0,
+    Customer: 0,
+  };
+  companies.forEach((c) => {
+    const status = c["Lead Status"] || "Research";
+    if (status in pipelineCounts) {
+      pipelineCounts[status as keyof typeof pipelineCounts]++;
+    } else {
+      pipelineCounts.Research++;
+    }
+  });
+
   return (
     <div className="max-w-7xl mx-auto space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted text-sm mt-1">
-          CoreConX Mission Control — overview of everything happening
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted text-sm mt-1">
+            CoreConX Mission Control — overview of everything happening
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div
+            className={`w-2 h-2 rounded-full ${
+              apiOnline ? "bg-success" : "bg-danger"
+            }`}
+          />
+          <span className="text-xs text-muted">
+            {loading ? "Connecting..." : apiOnline ? "API Live" : "API Offline"}
+          </span>
+        </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="CRM Contacts"
-          value={6}
-          subtitle="Verified direct emails"
+          value={apiOnline ? companies.length : "—"}
+          subtitle={apiOnline ? "Verified direct emails" : "Connecting..."}
           icon={<Users size={20} />}
-          trend={{ value: "+5 companies researched", positive: true }}
+          trend={
+            apiOnline
+              ? { value: `${companies.length} companies loaded`, positive: true }
+              : undefined
+          }
           href="/crm"
         />
         <StatCard
@@ -58,18 +117,21 @@ export default function Dashboard() {
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Pipeline */}
-        <Link href="/crm" className="bg-card border border-border rounded-xl p-5 block hover:border-coreconx/40 transition-colors">
+        <Link
+          href="/crm"
+          className="bg-card border border-border rounded-xl p-5 block hover:border-coreconx/40 transition-colors"
+        >
           <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
             <Target size={18} className="text-coreconx-light" />
             Pipeline
           </h2>
           <div className="mt-4 space-y-3">
             {[
-              { stage: "Research", count: 6, color: "bg-info" },
-              { stage: "Cold Outreach", count: 0, color: "bg-warning" },
-              { stage: "Warm", count: 0, color: "bg-coreconx-light" },
-              { stage: "Demo", count: 0, color: "bg-accent-light" },
-              { stage: "Customer", count: 0, color: "bg-success" },
+              { stage: "Research", count: pipelineCounts.Research, color: "bg-info" },
+              { stage: "Cold Outreach", count: pipelineCounts["Cold Outreach"], color: "bg-warning" },
+              { stage: "Warm", count: pipelineCounts.Warm, color: "bg-coreconx-light" },
+              { stage: "Demo", count: pipelineCounts.Demo, color: "bg-accent-light" },
+              { stage: "Customer", count: pipelineCounts.Customer, color: "bg-success" },
             ].map((item) => (
               <div key={item.stage} className="flex items-center gap-3">
                 <div className={`w-2 h-2 rounded-full ${item.color}`} />
@@ -92,30 +154,12 @@ export default function Dashboard() {
           </h2>
           <div className="mt-4 space-y-3">
             {[
-              {
-                action: "Updated 21 legal docs",
-                time: "1h ago",
-              },
-              {
-                action: "DKIM authentication verified",
-                time: "2h ago",
-              },
-              {
-                action: "Email aliases configured",
-                time: "2h ago",
-              },
-              {
-                action: "Founding partner campaign drafted",
-                time: "3h ago",
-              },
-              {
-                action: "CRM cleaned — 6 verified contacts",
-                time: "Yesterday",
-              },
-              {
-                action: "28 email templates created",
-                time: "Yesterday",
-              },
+              { action: "API server live on Tailscale", time: "Just now" },
+              { action: "Mission Control deployed to Netlify", time: "30m ago" },
+              { action: "Updated 21 legal docs", time: "1h ago" },
+              { action: "DKIM authentication verified", time: "2h ago" },
+              { action: "Email aliases configured", time: "2h ago" },
+              { action: "Founding partner campaign drafted", time: "3h ago" },
             ].map((item, i) => (
               <div key={i} className="flex items-start gap-3">
                 <div className="w-1.5 h-1.5 rounded-full bg-coreconx-light mt-2" />
@@ -152,8 +196,8 @@ export default function Dashboard() {
               href: "/emails",
             },
             {
-              title: "Build Mission Control",
-              desc: "This dashboard — deploy to Netlify",
+              title: "Wire Live APIs",
+              desc: "CRM, Gmail, Linear, Calendar connected via Tailscale",
               status: "In Progress",
               statusColor: "text-warning",
               href: "/tasks",
