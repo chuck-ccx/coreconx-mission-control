@@ -262,8 +262,15 @@ app.post('/api/tasks/:id/approve', (req, res) => {
     currentLabelIds.push(labelId);
   }
 
+  // Also move to "In Progress" when approving
+  const statesResult = linearQuery(`{ team(id: "COR") { states(filter: { type: { eq: "started" } }) { nodes { id name } } } }`);
+  const inProgressStateId = statesResult?.data?.team?.states?.nodes?.[0]?.id;
+
   const labelIdList = currentLabelIds.map(lid => `"${lid}"`).join(', ');
-  const mutation = `mutation { issueUpdate(id: "${id}", input: { labelIds: [${labelIdList}] }) { success issue { id identifier title labels { nodes { name color } } } } }`;
+  const input = inProgressStateId
+    ? `{ labelIds: [${labelIdList}], stateId: "${inProgressStateId}" }`
+    : `{ labelIds: [${labelIdList}] }`;
+  const mutation = `mutation { issueUpdate(id: "${id}", input: ${input}) { success issue { id identifier title state { name } labels { nodes { name color } } } } }`;
   const result = linearQuery(mutation);
   if (!result || !result.data?.issueUpdate?.success) {
     return res.status(500).json({ error: 'Failed to approve task', details: result });
@@ -295,6 +302,120 @@ app.post('/api/tasks/:id/unapprove', (req, res) => {
   linearQuery(mutation);
 
   res.json({ unapproved: true });
+});
+
+// ==================== Gmail — Inbox by Alias ====================
+
+app.get('/api/emails/alias/:alias', (req, res) => {
+  const alias = req.params.alias;
+  const raw = gog(`gmail search "to:${alias}" --max 20 -j`);
+  if (!raw) return res.status(500).json({ error: 'Failed to fetch emails for alias' });
+  try {
+    res.json(JSON.parse(raw));
+  } catch {
+    res.json({ threads: [] });
+  }
+});
+
+// ==================== Gmail — Thread Details ====================
+
+app.get('/api/emails/thread/:threadId', (req, res) => {
+  const { threadId } = req.params;
+  const raw = gog(`gmail thread get ${threadId} -j`);
+  if (!raw) return res.status(500).json({ error: 'Failed to fetch thread' });
+  try {
+    res.json(JSON.parse(raw));
+  } catch {
+    res.json({ raw });
+  }
+});
+
+// ==================== Gmail — Drafts ====================
+
+app.get('/api/emails/drafts', (req, res) => {
+  const raw = gog('gmail drafts list -j');
+  if (!raw) return res.status(500).json({ error: 'Failed to fetch drafts' });
+  try {
+    res.json(JSON.parse(raw));
+  } catch {
+    res.json({ drafts: [] });
+  }
+});
+
+app.post('/api/emails/draft', (req, res) => {
+  const { to, subject, body, from, replyToMessageId } = req.body;
+  if (!to || !subject || !body) return res.status(400).json({ error: 'to, subject, and body required' });
+
+  let cmd = `gmail drafts create --to "${to}" --subject "${subject.replace(/"/g, '\\"')}" --body "${body.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`;
+  if (from) cmd += ` --from "${from}"`;
+  if (replyToMessageId) cmd += ` --reply-to-message-id "${replyToMessageId}"`;
+  cmd += ' -j';
+
+  const raw = gog(cmd);
+  if (!raw) return res.status(500).json({ error: 'Failed to create draft' });
+  try {
+    res.json(JSON.parse(raw));
+  } catch {
+    res.json({ created: true, raw });
+  }
+});
+
+app.post('/api/emails/draft/:draftId/send', (req, res) => {
+  const { draftId } = req.params;
+  const raw = gog(`gmail drafts send ${draftId} -j -y`);
+  if (!raw && raw !== '') return res.status(500).json({ error: 'Failed to send draft' });
+  try {
+    res.json(JSON.parse(raw));
+  } catch {
+    res.json({ sent: true, raw });
+  }
+});
+
+app.delete('/api/emails/draft/:draftId', (req, res) => {
+  const raw = gog(`gmail drafts delete ${req.params.draftId} -y`);
+  if (raw === null) return res.status(500).json({ error: 'Failed to delete draft' });
+  res.json({ deleted: true });
+});
+
+// ==================== Gmail — Send (approve) ====================
+
+app.post('/api/emails/send', (req, res) => {
+  const { to, subject, body, from, replyToMessageId, threadId } = req.body;
+  if (!to || !subject || !body) return res.status(400).json({ error: 'to, subject, and body required' });
+
+  let cmd = `gmail send --to "${to}" --subject "${subject.replace(/"/g, '\\"')}" --body "${body.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`;
+  if (from) cmd += ` --from "${from}"`;
+  if (replyToMessageId) cmd += ` --reply-to-message-id "${replyToMessageId}"`;
+  if (threadId) cmd += ` --thread-id "${threadId}"`;
+  cmd += ' -j -y';
+
+  const raw = gog(cmd);
+  if (!raw && raw !== '') return res.status(500).json({ error: 'Failed to send email' });
+  try {
+    res.json(JSON.parse(raw));
+  } catch {
+    res.json({ sent: true, raw });
+  }
+});
+
+// ==================== Gmail — Archive / Mark Read ====================
+
+app.post('/api/emails/archive/:messageId', (req, res) => {
+  const raw = gog(`gmail archive ${req.params.messageId} -y`);
+  if (raw === null) return res.status(500).json({ error: 'Failed to archive' });
+  res.json({ archived: true });
+});
+
+app.post('/api/emails/mark-read/:messageId', (req, res) => {
+  const raw = gog(`gmail mark-read ${req.params.messageId} -y`);
+  if (raw === null) return res.status(500).json({ error: 'Failed to mark read' });
+  res.json({ markedRead: true });
+});
+
+app.post('/api/emails/trash/:messageId', (req, res) => {
+  const raw = gog(`gmail trash ${req.params.messageId} -y`);
+  if (raw === null) return res.status(500).json({ error: 'Failed to trash' });
+  res.json({ trashed: true });
 });
 
 // ==================== Google Calendar ====================
