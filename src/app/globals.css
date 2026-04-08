@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  --coreconx-green: #083820;
+  --coreconx-green-light: #0a4d2c;
+  --coreconx-green-dark: #062a18;
+  --background: #0f1117;
+  --foreground: #e4e4e7;
+  --card: #1a1c24;
+  --card-hover: #22252e;
+  --border: #2a2d36;
+  --muted: #71717a;
+  --accent: #083820;
+  --accent-light: #0d5a33;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-hover: var(--card-hover);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --color-coreconx: var(--coreconx-green);
+  --color-coreconx-light: var(--coreconx-green-light);
+  --color-coreconx-dark: var(--coreconx-green-dark);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
