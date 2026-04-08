@@ -233,6 +233,76 @@ app.get('/api/templates', (req, res) => {
   res.json(categories);
 });
 
+// ==================== Errors & Diagnostics (Google Sheets) ====================
+
+const ERRORS_SHEET_ID = '1arbZpTV9DSVS8w-4FA8XhV59x_DWxpGIP1dI5vxX3ak';
+const ERRORS_TAB = 'Errors';
+
+app.get('/api/errors', (req, res) => {
+  const raw = gog(`sheets get ${ERRORS_SHEET_ID} "${ERRORS_TAB}!A1:H100" -p`);
+  if (!raw) return res.status(500).json({ error: 'Failed to fetch errors' });
+
+  const lines = raw.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return res.json([]);
+
+  const headers = lines[0].split('\t').map(h => h.trim().toLowerCase());
+  const errors = lines.slice(1).map(line => {
+    const cols = line.split('\t');
+    return {
+      id: (cols[0] || '').trim(),
+      level: (cols[1] || '').trim(),
+      title: (cols[2] || '').trim(),
+      message: (cols[3] || '').trim(),
+      timestamp: (cols[4] || '').trim(),
+      source: (cols[5] || '').trim(),
+      suggestion: (cols[6] || '').trim(),
+      resolved: (cols[7] || '').trim().toLowerCase() === 'true',
+    };
+  }).filter(e => e.id);
+
+  res.json(errors);
+});
+
+app.post('/api/errors', (req, res) => {
+  const { level, title, message, source, suggestion, resolved } = req.body;
+  if (!title || !message) return res.status(400).json({ error: 'title and message required' });
+
+  const id = 'e' + Date.now();
+  const timestamp = new Date().toLocaleString('en-US', { timeZone: 'America/Vancouver', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '') + ' PDT';
+
+  const row = [[id, level || 'error', title, message, timestamp, source || '', suggestion || '', resolved ? 'true' : 'false']];
+  const result = gog(`sheets append ${ERRORS_SHEET_ID} "${ERRORS_TAB}!A:H" --values-json '${JSON.stringify(row)}'`);
+  if (!result && result !== '') return res.status(500).json({ error: 'Failed to log error' });
+
+  res.json({ id, logged: true });
+});
+
+app.patch('/api/errors/:id', (req, res) => {
+  const { id } = req.params;
+  const { resolved, level, suggestion } = req.body;
+
+  // Read all errors to find the row
+  const raw = gog(`sheets get ${ERRORS_SHEET_ID} "${ERRORS_TAB}!A1:H100" -p`);
+  if (!raw) return res.status(500).json({ error: 'Failed to fetch errors' });
+
+  const lines = raw.split('\n').filter(l => l.trim());
+  const rowIndex = lines.findIndex((line, i) => i > 0 && line.split('\t')[0]?.trim() === id);
+  if (rowIndex === -1) return res.status(404).json({ error: 'Error not found' });
+
+  const cols = lines[rowIndex].split('\t');
+  const sheetRow = rowIndex + 1; // 1-indexed
+
+  if (resolved !== undefined) cols[7] = resolved ? 'true' : 'false';
+  if (resolved) cols[1] = 'resolved';
+  if (level) cols[1] = level;
+  if (suggestion) cols[6] = suggestion;
+
+  const row = [cols.map(c => c.trim())];
+  gog(`sheets update ${ERRORS_SHEET_ID} "${ERRORS_TAB}!A${sheetRow}:H${sheetRow}" --values-json '${JSON.stringify(row)}'`);
+
+  res.json({ id, updated: true });
+});
+
 // ==================== System Status ====================
 
 app.get('/api/status', (req, res) => {
