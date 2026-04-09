@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Users, Search, ExternalLink, MapPin, Mail, FileText, Plus, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -241,140 +241,147 @@ export default function CRMPage() {
                 const location = [company.City, company["Province/State"]]
                   .filter(Boolean)
                   .join(", ");
+                const isSelected = selectedCompany === company["Company Name"];
 
                 return (
-                  <tr
-                    key={company["Company Name"]}
-                    onClick={() => selectCompany(company["Company Name"])}
-                    className={`border-b border-border/50 hover:bg-card-hover transition-colors cursor-pointer ${
-                      i % 2 === 0 ? "bg-card" : "bg-background/30"
-                    } ${selectedCompany === company["Company Name"] ? "ring-1 ring-coreconx-light" : ""}`}
-                  >
-                    <td className="px-5 py-4">
-                      <p className="text-sm font-medium text-foreground">
-                        {company["Company Name"]}
-                      </p>
-                      <p className="text-xs text-muted mt-0.5">
-                        {company.Specialties || company.Notes || ""}
-                      </p>
-                    </td>
-                    <td className="px-5 py-4 text-sm text-foreground">
-                      {contact?.["Full Name"] || "—"}
-                    </td>
-                    <td className="px-5 py-4">
-                      {contact?.Email ? (
+                  <React.Fragment key={company["Company Name"]}>
+                    <tr
+                      onClick={() => isSelected ? setSelectedCompany(null) : selectCompany(company["Company Name"])}
+                      className={`border-b border-border/50 hover:bg-card-hover transition-colors cursor-pointer ${
+                        i % 2 === 0 ? "bg-card" : "bg-background/30"
+                      } ${isSelected ? "bg-coreconx-dark/20 border-coreconx-light/30" : ""}`}
+                    >
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <FileText size={14} className={isSelected ? "text-coreconx-light" : "text-transparent"} />
+                          <div>
+                            <p className="text-sm font-medium text-foreground">
+                              {company["Company Name"]}
+                            </p>
+                            <p className="text-xs text-muted mt-0.5">
+                              {company.Specialties || company.Notes || ""}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-sm text-foreground">
+                        {contact?.["Full Name"] || "—"}
+                      </td>
+                      <td className="px-5 py-4">
+                        {contact?.Email ? (
+                          <div className="flex items-center gap-1.5">
+                            <Mail size={12} className="text-muted" />
+                            <span className="text-sm text-foreground font-mono">
+                              {contact.Email}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted">No direct email</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
                         <div className="flex items-center gap-1.5">
-                          <Mail size={12} className="text-muted" />
-                          <span className="text-sm text-foreground font-mono">
-                            {contact.Email}
+                          <MapPin size={12} className="text-muted" />
+                          <span className="text-sm text-muted">
+                            {location || company.Country || "—"}
                           </span>
                         </div>
-                      ) : (
-                        <span className="text-xs text-muted">No direct email</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin size={12} className="text-muted" />
-                        <span className="text-sm text-muted">
-                          {location || company.Country || "—"}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                            statusColors[status] || "bg-border text-muted"
+                          }`}
+                        >
+                          {status}
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span
-                        className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                          statusColors[status] || "bg-border text-muted"
-                        }`}
-                      >
-                        {status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-16 h-1.5 bg-border rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-coreconx-light rounded-full"
-                            style={{ width: `${score * 10}%` }}
-                          />
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 bg-border rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-coreconx-light rounded-full"
+                              style={{ width: `${score * 10}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-mono text-muted">
+                            {score || "—"}
+                          </span>
                         </div>
-                        <span className="text-xs font-mono text-muted">
-                          {score || "—"}
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                    </tr>
+                    {isSelected && (
+                      <tr>
+                        <td colSpan={6} className="p-0">
+                          <div className="bg-coreconx-dark/10 border-t border-b border-coreconx-light/20 px-6 py-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                                <FileText size={14} className="text-coreconx-light" />
+                                Documents — {selectedCompany}
+                              </h3>
+                              <button onClick={(e) => { e.stopPropagation(); setSelectedCompany(null); }} className="text-muted hover:text-foreground">
+                                <X size={16} />
+                              </button>
+                            </div>
+                            {docsLoading ? (
+                              <p className="text-xs text-muted">Loading documents...</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {documents.map((doc, idx) => (
+                                  <div key={idx} className="flex items-center justify-between bg-background/50 border border-border/50 rounded-lg px-4 py-2.5">
+                                    <div className="flex-1">
+                                      <p className="text-sm font-medium text-foreground">{doc.name}</p>
+                                      <div className="flex gap-3 mt-0.5">
+                                        {doc.sentDate && <span className="text-xs text-muted">Sent: {doc.sentDate}</span>}
+                                        {doc.signedDate && <span className="text-xs text-muted">Signed: {doc.signedDate}</span>}
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); cycleStatus(idx); }}
+                                      className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+                                        doc.status === "Signed"
+                                          ? "bg-success/20 text-success hover:bg-success/30"
+                                          : doc.status === "Sent"
+                                          ? "bg-warning/20 text-warning hover:bg-warning/30"
+                                          : "bg-danger/20 text-danger hover:bg-danger/30"
+                                      }`}
+                                    >
+                                      {doc.status}
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="Add custom document..."
+                                value={newDocName}
+                                onChange={(e) => setNewDocName(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Enter") addDocument(); }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex-1 bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground placeholder:text-muted focus:outline-none focus:border-coreconx-light"
+                              />
+                              <button
+                                onClick={(e) => { e.stopPropagation(); addDocument(); }}
+                                disabled={!newDocName.trim()}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-coreconx text-white rounded-lg text-sm hover:bg-coreconx-light transition-colors disabled:opacity-40"
+                              >
+                                <Plus size={14} />
+                                Add
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })
             )}
           </tbody>
         </table>
       </div>
-
-      {/* Document Detail Panel */}
-      {selectedCompany && (
-        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <FileText size={18} className="text-coreconx-light" />
-              Documents — {selectedCompany}
-            </h2>
-            <button onClick={() => setSelectedCompany(null)} className="text-muted hover:text-foreground">
-              <X size={18} />
-            </button>
-          </div>
-
-          {docsLoading ? (
-            <p className="text-sm text-muted">Loading documents...</p>
-          ) : (
-            <div className="space-y-2">
-              {documents.map((doc, idx) => (
-                <div key={idx} className="flex items-center justify-between bg-background/50 border border-border/50 rounded-lg px-4 py-3">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">{doc.name}</p>
-                    <div className="flex gap-3 mt-1">
-                      {doc.sentDate && <span className="text-xs text-muted">Sent: {doc.sentDate}</span>}
-                      {doc.signedDate && <span className="text-xs text-muted">Signed: {doc.signedDate}</span>}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => cycleStatus(idx)}
-                    className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
-                      doc.status === "Signed"
-                        ? "bg-success/20 text-success hover:bg-success/30"
-                        : doc.status === "Sent"
-                        ? "bg-warning/20 text-warning hover:bg-warning/30"
-                        : "bg-danger/20 text-danger hover:bg-danger/30"
-                    }`}
-                  >
-                    {doc.status}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Add custom document */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Add custom document..."
-              value={newDocName}
-              onChange={(e) => setNewDocName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addDocument()}
-              className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:border-coreconx-light"
-            />
-            <button
-              onClick={addDocument}
-              disabled={!newDocName.trim()}
-              className="flex items-center gap-1.5 px-3 py-2 bg-coreconx text-white rounded-lg text-sm hover:bg-coreconx-light transition-colors disabled:opacity-40"
-            >
-              <Plus size={14} />
-              Add
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Rules */}
       <div className="bg-card/50 border border-border/50 rounded-lg p-4">
