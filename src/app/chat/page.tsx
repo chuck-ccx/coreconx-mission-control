@@ -1,123 +1,68 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Lock, Shield, ShieldCheck, AlertTriangle } from "lucide-react";
+import { Send, Lock, ShieldCheck } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 
 interface Message {
-  id: string;
-  role: "user" | "chuck";
-  content: string;
-  timestamp: Date;
-  encrypted?: boolean;
+  from: string;
+  message: string;
+  timestamp: string;
 }
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "chuck",
-      content:
-        "Secure channel open. This chat is end-to-end encrypted — safe for API keys, credentials, and sensitive info. What do you need?",
-      timestamp: new Date(),
-      encrypted: true,
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [passphrase, setPassphrase] = useState("");
-  const [authError, setAuthError] = useState("");
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    loadHistory();
+    inputRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      inputRef.current?.focus();
-    }
-  }, [isAuthenticated]);
+  async function loadHistory() {
+    const history = await apiFetch<Message[]>("/api/chat/history");
+    if (history) setMessages(history);
+  }
 
-  const handleAuth = (e: React.FormEvent) => {
+  async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
-    // In production, this would verify against a hashed passphrase stored server-side
-    // For now, using a simple check — will be replaced with proper auth
-    if (passphrase.length >= 4) {
-      setIsAuthenticated(true);
-      setAuthError("");
-    } else {
-      setAuthError("Passphrase must be at least 4 characters");
-    }
-  };
+    if (!input.trim() || sending) return;
 
-  const sendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: input,
-      timestamp: new Date(),
-      encrypted: true,
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
+    const text = input.trim();
     setInput("");
+    setSending(true);
 
-    // Simulate Chuck's response — in production this hits the OpenClaw API
-    setTimeout(() => {
-      const chuckMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "chuck",
-        content: getChuckResponse(input),
-        timestamp: new Date(),
-        encrypted: true,
-      };
-      setMessages((prev) => [...prev, chuckMsg]);
-    }, 800);
-  };
+    // Optimistic update
+    setMessages((prev) => [
+      ...prev,
+      { from: "dylan", message: text, timestamp: new Date().toISOString() },
+    ]);
 
-  if (!isAuthenticated) {
-    return (
-      <div className="max-w-md mx-auto mt-32">
-        <div className="bg-card border border-border rounded-xl p-8 text-center">
-          <div className="w-16 h-16 rounded-full bg-coreconx/20 flex items-center justify-center mx-auto mb-4">
-            <Shield size={32} className="text-coreconx-light" />
-          </div>
-          <h1 className="text-xl font-bold text-foreground">Secure Chat</h1>
-          <p className="text-muted text-sm mt-2 mb-6">
-            Enter your passphrase to access the encrypted channel.
-            <br />
-            Safe for API keys, credentials, and sensitive data.
-          </p>
-          <form onSubmit={handleAuth} className="space-y-4">
-            <input
-              type="password"
-              value={passphrase}
-              onChange={(e) => setPassphrase(e.target.value)}
-              placeholder="Enter passphrase..."
-              className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-coreconx-light text-center"
-              autoFocus
-            />
-            {authError && (
-              <p className="text-danger text-xs">{authError}</p>
-            )}
-            <button
-              type="submit"
-              className="w-full px-4 py-3 bg-coreconx text-white rounded-lg font-medium hover:bg-coreconx-light transition-colors"
-            >
-              Unlock Channel
-            </button>
-          </form>
-          <div className="flex items-center justify-center gap-2 mt-6 text-xs text-muted">
-            <Lock size={12} />
-            <span>Messages never leave this device</span>
-          </div>
-        </div>
-      </div>
-    );
+    const result = await apiFetch<{ ok: boolean }>("/api/chat/send", {
+      method: "POST",
+      body: JSON.stringify({ message: text }),
+    });
+
+    if (!result?.ok) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          from: "system",
+          message: "Failed to send — check your connection.",
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    }
+
+    setSending(false);
+    inputRef.current?.focus();
   }
 
   return (
@@ -134,13 +79,9 @@ export default function ChatPage() {
               <ShieldCheck size={16} className="text-success" />
             </h1>
             <p className="text-xs text-muted">
-              End-to-end encrypted · Safe for credentials
+              Messages stored locally on server — safe for credentials
             </p>
           </div>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/10 border border-success/20">
-          <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
-          <span className="text-xs text-success font-medium">Online</span>
         </div>
       </div>
 
@@ -148,29 +89,46 @@ export default function ChatPage() {
       <div className="flex items-center gap-2 px-4 py-2 mt-3 rounded-lg bg-coreconx/10 border border-coreconx-light/20">
         <Lock size={14} className="text-coreconx-light shrink-0" />
         <p className="text-xs text-muted">
-          This channel is encrypted. Messages are stored locally only — never sent to external servers. Safe for API keys, tokens, and credentials.
+          Messages are stored on your server only — never sent to external
+          services. Safe for API keys, tokens, and credentials. Chuck receives
+          messages via system events.
         </p>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto py-4 space-y-4">
-        {messages.map((msg) => (
+        {messages.length === 0 && (
+          <div className="text-center text-muted text-sm mt-8">
+            No messages yet. Send API keys, credentials, or sensitive info
+            securely.
+          </div>
+        )}
+        {messages.map((msg, i) => (
           <div
-            key={msg.id}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            key={i}
+            className={`flex ${msg.from === "dylan" ? "justify-end" : "justify-start"}`}
           >
             <div
               className={`max-w-[75%] rounded-xl px-4 py-3 ${
-                msg.role === "user"
+                msg.from === "dylan"
                   ? "bg-coreconx text-white"
-                  : "bg-card border border-border text-foreground"
+                  : msg.from === "system"
+                    ? "bg-danger/10 border border-danger/20 text-danger"
+                    : "bg-card border border-border text-foreground"
               }`}
             >
-              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+              <p className="text-sm whitespace-pre-wrap break-all">
+                {msg.message}
+              </p>
               <div className="flex items-center gap-1.5 mt-2">
-                {msg.encrypted && <Lock size={10} className="opacity-40" />}
-                <p className={`text-[10px] ${msg.role === "user" ? "text-white/50" : "text-muted"}`}>
-                  {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                <Lock size={10} className="opacity-40" />
+                <p
+                  className={`text-[10px] ${msg.from === "dylan" ? "text-white/50" : "text-muted"}`}
+                >
+                  {new Date(msg.timestamp).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </p>
               </div>
             </div>
@@ -195,7 +153,7 @@ export default function ChatPage() {
           </div>
           <button
             type="submit"
-            disabled={!input.trim()}
+            disabled={!input.trim() || sending}
             className="p-3 rounded-xl bg-coreconx text-white hover:bg-coreconx-light transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <Send size={18} />
@@ -203,20 +161,9 @@ export default function ChatPage() {
         </div>
         <p className="text-[10px] text-muted text-center mt-2 flex items-center justify-center gap-1">
           <ShieldCheck size={10} />
-          End-to-end encrypted — messages stored locally only
+          Stored on your server — Chuck receives via system event
         </p>
       </form>
     </div>
   );
-}
-
-function getChuckResponse(input: string): string {
-  const lower = input.toLowerCase();
-  if (lower.includes("api") || lower.includes("key") || lower.includes("token") || lower.includes("secret")) {
-    return "Got it — I'll store that securely. Never shared outside this channel.";
-  }
-  if (lower.includes("hello") || lower.includes("hey") || lower.includes("hi")) {
-    return "Hey Dylan. Secure channel is open. What do you need?";
-  }
-  return "Received. I'll process that on my end. Anything else?";
 }

@@ -21,15 +21,27 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (username === "dylan" && password === "Chuck101") {
-      localStorage.setItem(AUTH_KEY, "authenticated");
-      setIsAuthenticated(true);
-    } else {
-      setError("Invalid username or password");
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://api.ccxmc.ca';
+      const res = await fetch(`${apiBase}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.token) localStorage.setItem('mc-api-token', data.token);
+        localStorage.setItem(AUTH_KEY, "authenticated");
+        setIsAuthenticated(true);
+      } else {
+        setError("Invalid username or password");
+      }
+    } catch {
+      setError("Cannot reach server — check your connection");
     }
   };
 

@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { execSync, exec, execFile } from 'child_process';
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync } from 'fs';
 
 const app = express();
 const PORT = 3100;
@@ -19,6 +19,20 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+// Login endpoint — validates credentials from env vars (not behind bearer auth)
+const MC_USERNAME = process.env.MC_USERNAME || 'dylan';
+const MC_PASSWORD = process.env.MC_PASSWORD; // MUST be set in env — no fallback
+app.post('/auth/login', (req, res) => {
+  const { username, password } = req.body;
+  if (!MC_PASSWORD) {
+    return res.status(500).json({ error: 'Server auth not configured' });
+  }
+  if (username === MC_USERNAME && password === MC_PASSWORD) {
+    return res.json({ authenticated: true, token: API_TOKEN });
+  }
+  return res.status(401).json({ error: 'Invalid credentials' });
+});
 
 // Auth middleware — simple bearer token
 const API_TOKEN = process.env.MC_API_TOKEN || 'coreconx-mc-2026';
@@ -1097,6 +1111,57 @@ app.get('/api/legal/docs', (req, res) => {
     { id: "employee", title: "Employee & Contractor Agreement", phase: "General", category: "Legal", url: "https://docs.google.com/document/d/1BklnEoyttFVzfIgJPgKlggWwitV1-ZYh-Lwa8JbExq0/edit", summary: "Template for hiring employees or contractors. Roles, compensation, IP ownership, confidentiality, termination. No employees currently — for future use.", status: "Live", lastUpdated: "Apr 8" },
     { id: "insurance-internal", title: "Insurance Requirements (Internal)", phase: "General", category: "Legal", url: "https://docs.google.com/document/d/1gM0MKa_LKJc2sVknxODg_X6p5zG5YveRBXnlOBOZLFw/edit", summary: "Internal reference for insurance needs — E&O, cyber liability, general business insurance. Planning document for when CoreConX incorporates.", status: "Live", lastUpdated: "Apr 8" },
   ]);
+});
+
+// ==================== Secure Chat ====================
+
+const CHAT_DIR = process.env.CHAT_DIR || '/Users/chucka.i./.openclaw/workspace/secure-chat';
+
+app.post('/api/chat/send', (req, res) => {
+  const { message } = req.body;
+  if (!message || typeof message !== 'string' || message.length > 10000) {
+    return res.status(400).json({ error: 'Invalid message' });
+  }
+
+  try {
+    if (!existsSync(CHAT_DIR)) mkdirSync(CHAT_DIR, { recursive: true });
+
+    const entry = JSON.stringify({
+      from: 'dylan',
+      message: message.trim(),
+      timestamp: new Date().toISOString(),
+    });
+    appendFileSync(`${CHAT_DIR}/messages.jsonl`, entry + '\n');
+
+    // Fire OpenClaw system event so Chuck picks it up
+    try {
+      const safeMsg = message.trim().substring(0, 200).replace(/'/g, "\\'").replace(/\n/g, ' ');
+      execSync(`openclaw system event --text 'Secure chat from Dylan: ${safeMsg}' --mode now`, {
+        timeout: 5000,
+        env: { ...process.env, PATH: `/opt/homebrew/bin:${process.env.PATH}` },
+      });
+    } catch (err) {
+      console.error(`[chat] OpenClaw notify failed: ${err.message}`);
+    }
+
+    res.json({ ok: true, received: true });
+  } catch (err) {
+    console.error(`[chat] Write failed: ${err.message}`);
+    res.status(500).json({ error: 'Failed to store message' });
+  }
+});
+
+app.get('/api/chat/history', (_req, res) => {
+  try {
+    const filePath = `${CHAT_DIR}/messages.jsonl`;
+    if (!existsSync(filePath)) return res.json([]);
+    const lines = readFileSync(filePath, 'utf-8').trim().split('\n').filter(Boolean);
+    const messages = lines.slice(-50).map(line => JSON.parse(line));
+    res.json(messages);
+  } catch (err) {
+    console.error(`[chat] Read failed: ${err.message}`);
+    res.json([]);
+  }
 });
 
 // ==================== Health ====================
