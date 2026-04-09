@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://100.70.32.111:3100';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.ccxmc.ca';
 const API_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN || 'coreconx-mc-2026';
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T | null> {
