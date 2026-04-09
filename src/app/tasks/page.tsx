@@ -188,10 +188,11 @@ export default function TasksPage() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [assignDropdown]);
 
-  // Helper: get effective assignee name (check for Chuck label if no Linear assignee)
+  // Helper: get effective assignee name (check for agent labels if no Linear assignee)
   const getAssigneeName = (issue: LinearIssue): string | null => {
     if (issue.assignee?.name) return issue.assignee.name;
     if (issue.labels?.nodes?.some(l => l.name === "Assigned: Chuck")) return "Chuck (AI)";
+    if (issue.labels?.nodes?.some(l => l.name === "Assigned: Code Agent")) return "Code Agent";
     return null;
   };
 

@@ -322,8 +322,9 @@ app.get('/api/tasks/members', (req, res) => {
     .filter(u => u.active !== false)
     .map(u => ({ id: u.id, name: u.displayName || u.name, email: u.email }));
 
-  // Add Chuck (AI) as a virtual member — uses label-based assignment
+  // Add AI agents as virtual members — uses label-based assignment
   users.push({ id: 'chuck-ai', name: 'Chuck (AI)', email: 'chuck@coreconx.group' });
+  users.push({ id: 'code-agent', name: 'Code Agent', email: null });
 
   res.json(users);
 });
@@ -360,15 +361,47 @@ app.post('/api/tasks/:id/assign', (req, res) => {
     return res.json({ assigned: true, assignee: { name: 'Chuck (AI)', id: 'chuck-ai' }, issue: result.data.issueUpdate.issue });
   }
 
+  if (userId === 'code-agent') {
+    // Code Agent isn't a Linear user — add "Assigned: Code Agent" label instead
+    let labelResult = linearQuery(`{ issueLabels(filter: { name: { eq: "Assigned: Code Agent" } }) { nodes { id } } }`);
+    let labelId = labelResult?.data?.issueLabels?.nodes?.[0]?.id;
+    if (!labelId) {
+      const createLabel = linearQuery(`mutation { issueLabelCreate(input: { name: "Assigned: Code Agent", color: "#10b981" }) { success issueLabel { id } } }`);
+      labelId = createLabel?.data?.issueLabelCreate?.issueLabel?.id;
+    }
+    if (!labelId) return res.status(500).json({ error: 'Could not create Code Agent label' });
+
+    // Get current labels and add Code Agent's
+    const issueResult = linearQuery(`{ issue(id: "${id}") { labels { nodes { id } } } }`);
+    const currentLabelIds = (issueResult?.data?.issue?.labels?.nodes || []).map(l => l.id);
+    if (!currentLabelIds.includes(labelId)) currentLabelIds.push(labelId);
+    const labelIdList = currentLabelIds.map(lid => `"${lid}"`).join(', ');
+
+    // Also remove Chuck label if switching assignment
+    const chuckLabelResult = linearQuery(`{ issueLabels(filter: { name: { eq: "Assigned: Chuck" } }) { nodes { id } } }`);
+    const chuckLabelId = chuckLabelResult?.data?.issueLabels?.nodes?.[0]?.id;
+    const finalLabelIds = currentLabelIds.filter(lid => lid !== chuckLabelId);
+    if (!finalLabelIds.includes(labelId)) finalLabelIds.push(labelId);
+    const finalLabelIdList = finalLabelIds.map(lid => `"${lid}"`).join(', ');
+
+    const mutation = `mutation { issueUpdate(id: "${id}", input: { labelIds: [${finalLabelIdList}], assigneeId: null }) { success issue { id assignee { name } labels { nodes { name color } } } } }`;
+    const result = linearQuery(mutation);
+    if (!result?.data?.issueUpdate?.success) return res.status(500).json({ error: 'Failed to assign to Code Agent' });
+    return res.json({ assigned: true, assignee: { name: 'Code Agent', id: 'code-agent' }, issue: result.data.issueUpdate.issue });
+  }
+
   if (userId === null || userId === 'unassign') {
-    // Unassign — also remove "Assigned: Chuck" label if present
-    const labelResult = linearQuery(`{ issueLabels(filter: { name: { eq: "Assigned: Chuck" } }) { nodes { id } } }`);
-    const chuckLabelId = labelResult?.data?.issueLabels?.nodes?.[0]?.id;
+    // Unassign — remove all agent labels (Chuck + Code Agent)
+    const chuckLabelResult = linearQuery(`{ issueLabels(filter: { name: { eq: "Assigned: Chuck" } }) { nodes { id } } }`);
+    const chuckLabelId = chuckLabelResult?.data?.issueLabels?.nodes?.[0]?.id;
+    const codeLabelResult = linearQuery(`{ issueLabels(filter: { name: { eq: "Assigned: Code Agent" } }) { nodes { id } } }`);
+    const codeLabelId = codeLabelResult?.data?.issueLabels?.nodes?.[0]?.id;
+    const agentLabelIds = [chuckLabelId, codeLabelId].filter(Boolean);
 
     let labelUpdate = '';
-    if (chuckLabelId) {
+    if (agentLabelIds.length > 0) {
       const issueResult = linearQuery(`{ issue(id: "${id}") { labels { nodes { id } } } }`);
-      const currentLabelIds = (issueResult?.data?.issue?.labels?.nodes || []).map(l => l.id).filter(lid => lid !== chuckLabelId);
+      const currentLabelIds = (issueResult?.data?.issue?.labels?.nodes || []).map(l => l.id).filter(lid => !agentLabelIds.includes(lid));
       const labelIdList = currentLabelIds.map(lid => `"${lid}"`).join(', ');
       labelUpdate = `, labelIds: [${labelIdList}]`;
     }
@@ -379,14 +412,15 @@ app.post('/api/tasks/:id/assign', (req, res) => {
     return res.json({ assigned: true, assignee: null, issue: result.data.issueUpdate.issue });
   }
 
-  // Regular Linear user assignment — also remove Chuck label if present
-  const labelResult = linearQuery(`{ issueLabels(filter: { name: { eq: "Assigned: Chuck" } }) { nodes { id } } }`);
-  const chuckLabelId = labelResult?.data?.issueLabels?.nodes?.[0]?.id;
+  // Regular Linear user assignment — also remove agent labels if present
+  const chuckLabel = linearQuery(`{ issueLabels(filter: { name: { eq: "Assigned: Chuck" } }) { nodes { id } } }`);
+  const codeLabel = linearQuery(`{ issueLabels(filter: { name: { eq: "Assigned: Code Agent" } }) { nodes { id } } }`);
+  const agentLabelsToRemove = [chuckLabel?.data?.issueLabels?.nodes?.[0]?.id, codeLabel?.data?.issueLabels?.nodes?.[0]?.id].filter(Boolean);
 
   let labelUpdate = '';
-  if (chuckLabelId) {
+  if (agentLabelsToRemove.length > 0) {
     const issueResult = linearQuery(`{ issue(id: "${id}") { labels { nodes { id } } } }`);
-    const currentLabelIds = (issueResult?.data?.issue?.labels?.nodes || []).map(l => l.id).filter(lid => lid !== chuckLabelId);
+    const currentLabelIds = (issueResult?.data?.issue?.labels?.nodes || []).map(l => l.id).filter(lid => !agentLabelsToRemove.includes(lid));
     const labelIdList = currentLabelIds.map(lid => `"${lid}"`).join(', ');
     labelUpdate = `, labelIds: [${labelIdList}]`;
   }
@@ -731,12 +765,15 @@ app.get('/api/agents', (req, res) => {
         if (assigneeName) {
           taskCounts[assigneeName] = (taskCounts[assigneeName] || 0) + 1;
         }
-        // Also count "Assigned: Chuck" labels
+        // Also count "Assigned: <agent>" labels — map to agent IDs
         for (const label of (issue.labels?.nodes || [])) {
           const match = label.name.match(/^Assigned:\s*(.+)/i);
           if (match) {
             const name = match[1].trim();
             taskCounts[name] = (taskCounts[name] || 0) + 1;
+            // Map label names to registry IDs (e.g. "Code Agent" → "code")
+            const idForm = name.toLowerCase().replace(/\s+agent$/i, '').replace(/\s+/g, '-');
+            if (idForm !== name) taskCounts[idForm] = (taskCounts[idForm] || 0) + 1;
           }
         }
       }
