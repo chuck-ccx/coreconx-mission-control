@@ -21,6 +21,10 @@ import {
   LayoutTemplate,
   Plus,
   Copy,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldQuestion,
+  ExternalLink,
 } from "lucide-react";
 import { Modal } from "@/components/modal";
 import { apiFetch } from "@/lib/api";
@@ -913,53 +917,31 @@ function ColumnContent({
     return (
       <>
         {inboxEmails.map((email, i) => (
-          <div
+          <button
             key={email.id || i}
-            className="rounded-lg border border-border bg-background p-3 hover:border-coreconx/40 transition-colors"
+            onClick={() => email.id && onOpenThread(email.id)}
+            className="w-full text-left rounded-xl border border-border bg-background p-4 hover:border-coreconx/50 hover:bg-coreconx/5 transition-all cursor-pointer group active:scale-[0.98]"
           >
-            <button
-              onClick={() => email.id && onOpenThread(email.id)}
-              className="w-full text-left"
-            >
-              <p className="text-sm font-medium text-foreground truncate">{email.subject || "(no subject)"}</p>
-              <p className="text-xs text-muted truncate mt-0.5">{email.from || "\u2014"}</p>
-              {email.snippet && (
-                <p className="text-xs text-muted/60 mt-1 line-clamp-2">{email.snippet}</p>
-              )}
-              <div className="flex items-center justify-between mt-2">
-                <span className="text-[10px] text-muted">{email.date || ""}</span>
-                {email.messageCount && email.messageCount > 1 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-card-hover text-muted">{email.messageCount} msgs</span>
-                )}
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm sm:text-base font-semibold text-foreground line-clamp-2 leading-snug">{email.subject || "(no subject)"}</p>
+                <p className="text-xs sm:text-sm text-muted mt-1">{email.from || "\u2014"}</p>
               </div>
-            </button>
-            <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border/50">
-              <button
-                onClick={() => email.id && onEmailAction(email.id, "archive")}
-                disabled={!!actionLoading[email.id || ""]}
-                title="Archive"
-                className="p-1.5 rounded text-muted hover:text-foreground hover:bg-card-hover transition-colors disabled:opacity-50"
-              >
-                {actionLoading[email.id || ""] === "archive" ? <Loader2 size={12} className="animate-spin" /> : <Archive size={12} />}
-              </button>
-              <button
-                onClick={() => email.id && onEmailAction(email.id, "mark-read")}
-                disabled={!!actionLoading[email.id || ""]}
-                title="Mark read"
-                className="p-1.5 rounded text-muted hover:text-foreground hover:bg-card-hover transition-colors disabled:opacity-50"
-              >
-                {actionLoading[email.id || ""] === "mark-read" ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />}
-              </button>
-              <button
-                onClick={() => email.id && onEmailAction(email.id, "trash")}
-                disabled={!!actionLoading[email.id || ""]}
-                title="Trash"
-                className="p-1.5 rounded text-muted hover:text-error hover:bg-error/10 transition-colors disabled:opacity-50"
-              >
-                {actionLoading[email.id || ""] === "trash" ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-              </button>
+              <ExternalLink size={14} className="text-muted/40 group-hover:text-coreconx-light shrink-0 mt-1 transition-colors" />
             </div>
-          </div>
+            {email.snippet && (
+              <p className="text-xs sm:text-sm text-muted/70 mt-2 line-clamp-3 leading-relaxed">{email.snippet}</p>
+            )}
+            <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/30">
+              <span className="text-[11px] text-muted">{email.date || ""}</span>
+              <div className="flex items-center gap-2">
+                {email.messageCount && email.messageCount > 1 && (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-card-hover text-muted font-medium">{email.messageCount} msgs</span>
+                )}
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-info/15 text-info font-medium">Tap to open</span>
+              </div>
+            </div>
+          </button>
         ))}
       </>
     );
@@ -1049,23 +1031,43 @@ function ColumnContent({
     if (sentEmails.length === 0) return <EmptyState icon={Send} text="No sent emails" sub="Approved replies appear here" />;
     return (
       <>
-        {sentEmails.map((email, i) => (
-          <button
-            key={email.id || i}
-            onClick={() => email.id && onOpenThread(email.id)}
-            className="w-full text-left rounded-lg border border-border bg-background p-3 hover:border-coreconx/40 transition-colors"
-          >
-            <p className="text-sm font-medium text-foreground truncate">{email.subject || "(no subject)"}</p>
-            <p className="text-xs text-muted truncate mt-0.5">To: {email.to || email.from || "\u2014"}</p>
-            {email.snippet && (
-              <p className="text-xs text-muted/60 mt-1 line-clamp-2">{email.snippet}</p>
-            )}
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-[10px] text-muted">{email.date || ""}</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/20 text-success">Sent</span>
-            </div>
-          </button>
-        ))}
+        {sentEmails.map((email, i) => {
+          // Simple spam risk heuristic based on labels
+          const labels = email.labels || [];
+          const isSpam = labels.some((l) => l.toLowerCase().includes("spam"));
+          const isBounced = labels.some((l) => l.toLowerCase().includes("bounce") || l.toLowerCase().includes("failed"));
+          const healthStatus = isSpam ? "spam" : isBounced ? "bounced" : "delivered";
+          const HealthIcon = healthStatus === "delivered" ? ShieldCheck : healthStatus === "spam" ? ShieldAlert : ShieldQuestion;
+          const healthColor = healthStatus === "delivered" ? "text-success" : healthStatus === "spam" ? "text-error" : "text-warning";
+          const healthLabel = healthStatus === "delivered" ? "Delivered" : healthStatus === "spam" ? "Spam Risk" : "Bounced";
+
+          return (
+            <button
+              key={email.id || i}
+              onClick={() => email.id && onOpenThread(email.id)}
+              className="w-full text-left rounded-xl border border-border bg-background p-4 hover:border-coreconx/50 hover:bg-coreconx/5 transition-all cursor-pointer group active:scale-[0.98]"
+            >
+              <p className="text-sm sm:text-base font-semibold text-foreground line-clamp-2 leading-snug">{email.subject || "(no subject)"}</p>
+              <p className="text-xs sm:text-sm text-muted mt-1">To: {email.to || email.from || "\u2014"}</p>
+              {email.snippet && (
+                <p className="text-xs sm:text-sm text-muted/70 mt-2 line-clamp-2 leading-relaxed">{email.snippet}</p>
+              )}
+              <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/30">
+                <span className="text-[11px] text-muted">{email.date || ""}</span>
+                <div className="flex items-center gap-2">
+                  <span className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                    healthStatus === "delivered" ? "bg-success/15 text-success" :
+                    healthStatus === "spam" ? "bg-error/15 text-error" :
+                    "bg-warning/15 text-warning"
+                  }`}>
+                    <HealthIcon size={10} />
+                    {healthLabel}
+                  </span>
+                </div>
+              </div>
+            </button>
+          );
+        })}
       </>
     );
   }
