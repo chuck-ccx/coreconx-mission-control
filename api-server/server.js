@@ -507,9 +507,54 @@ app.get('/api/emails/thread/:threadId', (req, res) => {
   const raw = gog(`gmail thread get ${threadId} -j`);
   if (!raw) return res.status(500).json({ error: 'Failed to fetch thread' });
   try {
-    res.json(JSON.parse(raw));
-  } catch {
-    res.json({ raw });
+    const data = JSON.parse(raw);
+    const thread = data.thread || data;
+    const messages = (thread.messages || []).map(msg => {
+      const headers = msg.payload?.headers || [];
+      const getHeader = (name) => headers.find(h => h.name?.toLowerCase() === name.toLowerCase())?.value || '';
+      // Try to get body from parts or snippet
+      let body = msg.snippet || '';
+      if (msg.payload?.parts) {
+        const textPart = msg.payload.parts.find(p => p.mimeType === 'text/plain');
+        if (textPart?.body?.data) {
+          body = Buffer.from(textPart.body.data, 'base64').toString('utf-8');
+        }
+      } else if (msg.payload?.body?.data) {
+        body = Buffer.from(msg.payload.body.data, 'base64').toString('utf-8');
+      }
+      return {
+        id: msg.id,
+        from: getHeader('From'),
+        to: getHeader('To'),
+        date: getHeader('Date'),
+        subject: getHeader('Subject'),
+        body,
+        snippet: msg.snippet || '',
+      };
+    });
+    res.json({ id: thread.id, messages });
+  } catch (e) {
+    // Fallback: try fetching individual message with gmail get
+    const singleRaw = gog(`gmail get ${threadId} -j`);
+    if (singleRaw) {
+      try {
+        const msg = JSON.parse(singleRaw);
+        res.json({
+          id: threadId,
+          messages: [{
+            id: msg.message?.id || threadId,
+            from: msg.headers?.from || '',
+            to: msg.headers?.to || '',
+            date: msg.headers?.date || '',
+            subject: msg.headers?.subject || '',
+            body: msg.body || '',
+            snippet: msg.message?.snippet || '',
+          }]
+        });
+        return;
+      } catch {}
+    }
+    res.json({ id: threadId, messages: [] });
   }
 });
 
