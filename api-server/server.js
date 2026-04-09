@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { execSync } from 'child_process';
+import { execSync, exec } from 'child_process';
 import { readFileSync, writeFileSync } from 'fs';
 
 const app = express();
@@ -117,6 +117,48 @@ app.get('/api/crm/pipeline', (req, res) => {
   });
 
   res.json(pipeline);
+});
+
+// ==================== CRM Documents (in-memory) ====================
+
+const DEFAULT_DOCS = [
+  { name: 'NDA (Non-Disclosure Agreement)', status: 'Not Sent', sentDate: null, signedDate: null },
+  { name: 'Service Agreement', status: 'Not Sent', sentDate: null, signedDate: null },
+  { name: 'Master Service Agreement (MSA)', status: 'Not Sent', sentDate: null, signedDate: null },
+];
+
+const documentsStore = new Map();
+
+function getCompanyDocs(companyName) {
+  if (!documentsStore.has(companyName)) {
+    documentsStore.set(companyName, DEFAULT_DOCS.map(d => ({ ...d })));
+  }
+  return documentsStore.get(companyName);
+}
+
+app.get('/api/crm/documents/:companyName', (req, res) => {
+  const docs = getCompanyDocs(decodeURIComponent(req.params.companyName));
+  res.json(docs);
+});
+
+app.post('/api/crm/documents/:companyName', (req, res) => {
+  const { name, status, sentDate, signedDate } = req.body;
+  if (!name) return res.status(400).json({ error: 'Document name is required' });
+  const docs = getCompanyDocs(decodeURIComponent(req.params.companyName));
+  docs.push({ name, status: status || 'Not Sent', sentDate: sentDate || null, signedDate: signedDate || null });
+  res.json(docs);
+});
+
+app.patch('/api/crm/documents/:companyName/:docIndex', (req, res) => {
+  const companyName = decodeURIComponent(req.params.companyName);
+  const idx = parseInt(req.params.docIndex);
+  const docs = getCompanyDocs(companyName);
+  if (idx < 0 || idx >= docs.length) return res.status(404).json({ error: 'Document not found' });
+  const { status, sentDate, signedDate } = req.body;
+  if (status) docs[idx].status = status;
+  if (sentDate !== undefined) docs[idx].sentDate = sentDate;
+  if (signedDate !== undefined) docs[idx].signedDate = signedDate;
+  res.json(docs);
 });
 
 // ==================== Gmail ====================
@@ -280,7 +322,14 @@ app.post('/api/tasks/:id/approve', (req, res) => {
     return res.status(500).json({ error: 'Failed to approve task', details: result });
   }
 
-  res.json({ approved: true, issue: result.data.issueUpdate.issue });
+  const issue = result.data.issueUpdate.issue;
+  res.json({ approved: true, issue });
+
+  // Fire-and-forget: notify OpenClaw to pick up the task immediately
+  const text = `Task approved: ${issue.identifier} - ${issue.title}`;
+  exec(`/opt/homebrew/bin/openclaw system event --text '${text.replace(/'/g, "\\'")}' --mode now`, (err) => {
+    if (err) console.error('OpenClaw notify failed:', err.message);
+  });
 });
 
 // ==================== Linear — Unapprove Issue (remove label) ====================

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, Search, ExternalLink, MapPin, Mail } from "lucide-react";
+import { Users, Search, ExternalLink, MapPin, Mail, FileText, Plus, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 interface Company {
@@ -28,6 +28,13 @@ interface Contact {
   [key: string]: string;
 }
 
+interface Document {
+  name: string;
+  status: "Not Sent" | "Sent" | "Signed";
+  sentDate: string | null;
+  signedDate: string | null;
+}
+
 const statusColors: Record<string, string> = {
   Research: "bg-info/20 text-info",
   "Cold Outreach": "bg-warning/20 text-warning",
@@ -42,6 +49,10 @@ export default function CRMPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [newDocName, setNewDocName] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -59,6 +70,44 @@ export default function CRMPage() {
   // Match contacts to companies
   function getContact(companyName: string) {
     return contacts.find((c) => c["Company Name"] === companyName);
+  }
+
+  async function loadDocuments(companyName: string) {
+    setDocsLoading(true);
+    const docs = await apiFetch<Document[]>(`/api/crm/documents/${encodeURIComponent(companyName)}`);
+    if (docs) setDocuments(docs);
+    setDocsLoading(false);
+  }
+
+  async function cycleStatus(idx: number) {
+    if (!selectedCompany) return;
+    const doc = documents[idx];
+    const next = doc.status === "Not Sent" ? "Sent" : doc.status === "Sent" ? "Signed" : "Not Sent";
+    const now = new Date().toISOString().split("T")[0];
+    const body: Record<string, string | null> = { status: next };
+    if (next === "Sent") body.sentDate = now;
+    if (next === "Signed") body.signedDate = now;
+    if (next === "Not Sent") { body.sentDate = null; body.signedDate = null; }
+    const updated = await apiFetch<Document[]>(
+      `/api/crm/documents/${encodeURIComponent(selectedCompany)}/${idx}`,
+      { method: "PATCH", body: JSON.stringify(body) }
+    );
+    if (updated) setDocuments(updated);
+  }
+
+  async function addDocument() {
+    if (!selectedCompany || !newDocName.trim()) return;
+    const updated = await apiFetch<Document[]>(
+      `/api/crm/documents/${encodeURIComponent(selectedCompany)}`,
+      { method: "POST", body: JSON.stringify({ name: newDocName.trim() }) }
+    );
+    if (updated) setDocuments(updated);
+    setNewDocName("");
+  }
+
+  function selectCompany(name: string) {
+    setSelectedCompany(name);
+    loadDocuments(name);
   }
 
   const filtered = companies.filter((c) =>
@@ -196,9 +245,10 @@ export default function CRMPage() {
                 return (
                   <tr
                     key={company["Company Name"]}
-                    className={`border-b border-border/50 hover:bg-card-hover transition-colors ${
+                    onClick={() => selectCompany(company["Company Name"])}
+                    className={`border-b border-border/50 hover:bg-card-hover transition-colors cursor-pointer ${
                       i % 2 === 0 ? "bg-card" : "bg-background/30"
-                    }`}
+                    } ${selectedCompany === company["Company Name"] ? "ring-1 ring-coreconx-light" : ""}`}
                   >
                     <td className="px-5 py-4">
                       <p className="text-sm font-medium text-foreground">
@@ -260,6 +310,71 @@ export default function CRMPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Document Detail Panel */}
+      {selectedCompany && (
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <FileText size={18} className="text-coreconx-light" />
+              Documents — {selectedCompany}
+            </h2>
+            <button onClick={() => setSelectedCompany(null)} className="text-muted hover:text-foreground">
+              <X size={18} />
+            </button>
+          </div>
+
+          {docsLoading ? (
+            <p className="text-sm text-muted">Loading documents...</p>
+          ) : (
+            <div className="space-y-2">
+              {documents.map((doc, idx) => (
+                <div key={idx} className="flex items-center justify-between bg-background/50 border border-border/50 rounded-lg px-4 py-3">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">{doc.name}</p>
+                    <div className="flex gap-3 mt-1">
+                      {doc.sentDate && <span className="text-xs text-muted">Sent: {doc.sentDate}</span>}
+                      {doc.signedDate && <span className="text-xs text-muted">Signed: {doc.signedDate}</span>}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => cycleStatus(idx)}
+                    className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+                      doc.status === "Signed"
+                        ? "bg-success/20 text-success hover:bg-success/30"
+                        : doc.status === "Sent"
+                        ? "bg-warning/20 text-warning hover:bg-warning/30"
+                        : "bg-danger/20 text-danger hover:bg-danger/30"
+                    }`}
+                  >
+                    {doc.status}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add custom document */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Add custom document..."
+              value={newDocName}
+              onChange={(e) => setNewDocName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addDocument()}
+              className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:border-coreconx-light"
+            />
+            <button
+              onClick={addDocument}
+              disabled={!newDocName.trim()}
+              className="flex items-center gap-1.5 px-3 py-2 bg-coreconx text-white rounded-lg text-sm hover:bg-coreconx-light transition-colors disabled:opacity-40"
+            >
+              <Plus size={14} />
+              Add
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Rules */}
       <div className="bg-card/50 border border-border/50 rounded-lg p-4">

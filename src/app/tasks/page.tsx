@@ -72,8 +72,11 @@ export default function TasksPage() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [assignDropdown, setAssignDropdown] = useState<string | null>(null);
   const [assigning, setAssigning] = useState<string | null>(null);
+  const [priorityDropdown, setPriorityDropdown] = useState<string | null>(null);
+  const [changingPriority, setChangingPriority] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const priorityDropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -177,16 +180,45 @@ export default function TasksPage() {
     setAssigning(null);
   };
 
-  // Close dropdown on click outside
+  const changePriority = async (issue: LinearIssue, priority: number) => {
+    setPriorityDropdown(null);
+    if (issue.priority === priority) return;
+    setChangingPriority(issue.id);
+
+    // Optimistic update
+    setIssues(prev => prev.map(i => i.id === issue.id ? { ...i, priority } : i));
+    if (selectedIssue?.id === issue.id) {
+      setSelectedIssue(prev => prev ? { ...prev, priority } : null);
+    }
+
+    const result = await apiFetch<{ id: string }>(`/api/tasks/${issue.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ priority }),
+    });
+
+    if (!result) {
+      // Revert on failure
+      setIssues(prev => prev.map(i => i.id === issue.id ? { ...i, priority: issue.priority } : i));
+      if (selectedIssue?.id === issue.id) {
+        setSelectedIssue(prev => prev ? { ...prev, priority: issue.priority } : null);
+      }
+    }
+    setChangingPriority(null);
+  };
+
+  // Close dropdowns on click outside
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setAssignDropdown(null);
       }
+      if (priorityDropdownRef.current && !priorityDropdownRef.current.contains(e.target as Node)) {
+        setPriorityDropdown(null);
+      }
     };
-    if (assignDropdown) document.addEventListener("mousedown", handleClick);
+    if (assignDropdown || priorityDropdown) document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [assignDropdown]);
+  }, [assignDropdown, priorityDropdown]);
 
   // Helper: get effective assignee name (check for agent labels if no Linear assignee)
   const getAssigneeName = (issue: LinearIssue): string | null => {
@@ -392,9 +424,33 @@ export default function TasksPage() {
           <div className="space-y-4">
             {/* Meta */}
             <div className="flex items-center gap-3 flex-wrap">
-              <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${(priorityLabels[selectedIssue.priority] || priorityLabels[0]).class}`}>
-                {(priorityLabels[selectedIssue.priority] || priorityLabels[0]).label}
-              </span>
+              <div className="relative" ref={priorityDropdown === selectedIssue.id ? priorityDropdownRef : undefined}>
+                <button
+                  onClick={() => setPriorityDropdown(priorityDropdown === selectedIssue.id ? null : selectedIssue.id)}
+                  disabled={changingPriority === selectedIssue.id}
+                  className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium transition-colors cursor-pointer hover:ring-1 hover:ring-coreconx/40 ${(priorityLabels[selectedIssue.priority] || priorityLabels[0]).class} disabled:opacity-50`}
+                >
+                  {changingPriority === selectedIssue.id ? <Loader2 size={12} className="animate-spin" /> : null}
+                  {(priorityLabels[selectedIssue.priority] || priorityLabels[0]).label}
+                  <ChevronDown size={10} />
+                </button>
+                {priorityDropdown === selectedIssue.id && (
+                  <div className="absolute left-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[130px]">
+                    {[1, 2, 3, 4, 0].map(p => (
+                      <button
+                        key={p}
+                        onClick={() => changePriority(selectedIssue, p)}
+                        className={`w-full text-left px-3 py-2 text-xs hover:bg-border/50 transition-colors flex items-center gap-2 ${
+                          selectedIssue.priority === p ? "font-medium" : "text-foreground"
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${priorityLabels[p].class}`} />
+                        <span className={selectedIssue.priority === p ? priorityLabels[p].class.split(" ")[1] : ""}>{priorityLabels[p].label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="relative" ref={assignDropdown === selectedIssue.id ? dropdownRef : undefined}>
                 <button
                   onClick={() => setAssignDropdown(assignDropdown === selectedIssue.id ? null : selectedIssue.id)}
