@@ -138,6 +138,40 @@ export default function EmailsPage() {
   type SubTab = "campaigns" | "templates";
   const [subTab, setSubTab] = useState<SubTab>("campaigns");
 
+  // Campaign expand & sequence email viewer
+  const [expandedCampaignId, setExpandedCampaignId] = useState<string | null>(null);
+  const [viewingSequenceEmail, setViewingSequenceEmail] = useState<SequenceEmail | null>(null);
+
+  // Template edit modal
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [editTemplateSubject, setEditTemplateSubject] = useState("");
+  const [editTemplateBody, setEditTemplateBody] = useState("");
+
+  const openTemplateEditor = (t: Template) => {
+    setEditingTemplate(t);
+    setEditTemplateSubject(t.subject);
+    setEditTemplateBody(t.body);
+  };
+
+  const saveTemplate = () => {
+    if (!editingTemplate) return;
+    setTemplates((prev) =>
+      prev.map((t) =>
+        t.id === editingTemplate.id
+          ? { ...t, subject: editTemplateSubject, body: editTemplateBody }
+          : t
+      )
+    );
+    setEditingTemplate(null);
+  };
+
+  interface SequenceEmail {
+    day: number;
+    label: string;
+    subject: string;
+    body: string;
+  }
+
   interface Campaign {
     id: string;
     name: string;
@@ -145,7 +179,8 @@ export default function EmailsPage() {
     sent: number;
     opened: number;
     replied: number;
-    templateId?: string;
+    description: string;
+    sequence: SequenceEmail[];
   }
 
   interface Template {
@@ -155,17 +190,58 @@ export default function EmailsPage() {
     body: string;
     category: string;
     usedCount: number;
+    variables: string[];
+    description: string;
   }
 
   const [campaigns] = useState<Campaign[]>([
-    { id: "1", name: "Q2 Drilling Outreach", status: "draft", sent: 0, opened: 0, replied: 0 },
-    { id: "2", name: "Follow-Up Sequence", status: "draft", sent: 0, opened: 0, replied: 0 },
+    {
+      id: "1",
+      name: "Founding Partner Outreach",
+      status: "active",
+      sent: 0,
+      opened: 0,
+      replied: 0,
+      description: "Honest, early-stage outreach to diamond drilling companies. Hormozi-aligned \u2014 lead with flaws, ask for help not a sale.",
+      sequence: [
+        {
+          day: 1,
+          label: "The Honest Ask",
+          subject: "Building something for drillers \u2014 could use your eyes on it",
+          body: "Hey {{name}},\n\nI\u2019m Dylan \u2014 I work as a helper at Hardrock Diamond Drilling. I\u2019ve been trying to build an app for diamond drillers on the side and I\u2019ll be honest, it\u2019s rough around the edges. The UI needs work, there are features missing, and I\u2019m figuring it out as I go.\n\nBut the core works \u2014 tracking driller performance, shifts, and project data without spreadsheets or paper. I built it because nothing out there is made for what we actually do.\n\nI\u2019m not looking for customers right now. I\u2019m looking for a few drillers willing to beat it up and tell me what\u2019s broken. No cost, no contract. If it\u2019s useful, all I\u2019d ask is an honest testimonial down the road. If it\u2019s not useful, tell me that too \u2014 that\u2019s just as valuable.\n\nWould you be open to taking a look?\n\nDylan",
+        },
+        {
+          day: 5,
+          label: "The Gentle Follow-Up",
+          subject: "No worries if not \u2014 just following up",
+          body: "Hey {{name}},\n\nJust following up \u2014 totally get it if you\u2019re slammed. I know what 12-hour days on a drill look like.\n\nQuick context if my last email got buried: I\u2019m a helper at Hardrock building an app to track driller performance and shifts. No customers yet, no testimonials, no polished marketing page. Just a working tool that needs real drillers to test it.\n\nIt\u2019s free. The only thing I\u2019d ask for is honest feedback \u2014 and if it actually helps, a testimonial down the road.\n\nIf the timing\u2019s wrong, no stress at all. Door\u2019s open whenever.\n\nDylan",
+        },
+        {
+          day: 14,
+          label: "The Last Door",
+          subject: "Last one from me \u2014 door\u2019s always open",
+          body: "Hey {{name}},\n\nLast email from me \u2014 I promise.\n\nI\u2019m looking for 10 diamond drilling companies to test an app I built for tracking driller performance and shifts. I can only support 10 right now because it\u2019s just me, and I want to give each company real attention.\n\nThe deal is simple: free access to the app, your honest feedback shapes what gets built, and if it works for you, a testimonial I can use.\n\nIf this isn\u2019t for you, totally respect that. If you know someone who might be interested, I\u2019d appreciate the intro.\n\nEither way, thanks for reading. Door\u2019s always open.\n\nDylan\n\nReply STOP to unsubscribe.",
+        },
+      ],
+    },
   ]);
 
-  const [templates] = useState<Template[]>([
-    { id: "1", name: "Cold Intro", subject: "Streamline your drilling operations", body: "Hi {{name}},\n\nI noticed {{company}} runs diamond drilling operations in {{region}}. We built CoreConX to help drill owners like you track performance, manage shifts, and reduce downtime.\n\nWould you be open to a quick 10-minute call this week?\n\nBest,\nDylan", category: "Outreach", usedCount: 0 },
-    { id: "2", name: "Follow-Up #1", subject: "Quick follow-up — CoreConX", body: "Hi {{name}},\n\nJust wanted to follow up on my last email. I know things get busy on the rig.\n\nCoreConX is already being used by drilling crews to cut reporting time in half. Happy to show you a quick demo whenever works.\n\nCheers,\nDylan", category: "Follow-Up", usedCount: 0 },
-    { id: "3", name: "Support Reply", subject: "Re: {{original_subject}}", body: "Hi {{name}},\n\nThanks for reaching out. {{response}}\n\nLet me know if you have any other questions.\n\nBest,\nChuck\nCoreConX Support", category: "Support", usedCount: 0 },
+  const [templates, setTemplates] = useState<Template[]>([
+    // Outreach
+    { id: "1", name: "Cold Intro", subject: "Streamline your drilling operations", body: "Hi {{name}},\n\nI noticed {{company}} runs operations in {{industry_detail}}. We built CoreConX to help drill owners like you track performance, manage shifts, and reduce downtime.\n\nWould you be open to a quick 10-minute call this week?\n\nBest,\nDylan", category: "Outreach", usedCount: 0, variables: ["{{name}}", "{{company}}", "{{industry_detail}}"], description: "First-touch email for new leads." },
+    { id: "2", name: "Warm Intro", subject: "{{referrer}} suggested I reach out", body: "Hi {{name}},\n\n{{referrer}} mentioned that {{company}} might be a great fit for what we\u2019re building at CoreConX. We help diamond drilling companies track driller performance, shifts, and project data \u2014 no more spreadsheets.\n\nWould love to show you a quick demo. No pressure, just a conversation.\n\nBest,\nDylan", category: "Outreach", usedCount: 0, variables: ["{{name}}", "{{company}}", "{{referrer}}"], description: "For referrals or mutual connections." },
+    { id: "3", name: "Partnership Proposal", subject: "Potential {{partnership_type}} partnership", body: "Hi {{name}},\n\nI\u2019m reaching out from CoreConX \u2014 we\u2019re building tools for diamond drilling companies to manage performance and operations data.\n\nI think there could be a strong {{partnership_type}} opportunity between us and {{company}}. Would you be open to a quick call to explore it?\n\nBest,\nDylan", category: "Outreach", usedCount: 0, variables: ["{{name}}", "{{company}}", "{{partnership_type}}"], description: "For potential integrations or partnerships." },
+    // Follow-Up
+    { id: "4", name: "Gentle Follow-Up", subject: "Quick follow-up", body: "Hi {{name}},\n\nJust wanted to follow up on my last email. I know things get busy on the rig \u2014 no rush at all.\n\nIf you\u2019re interested in seeing what CoreConX can do for your crew, I\u2019m happy to walk you through it whenever works.\n\nCheers,\nDylan", category: "Follow-Up", usedCount: 0, variables: ["{{name}}"], description: "Day 5-7 after first contact." },
+    { id: "5", name: "Value-Add Follow-Up", subject: "Thought this might be useful", body: "Hi {{name}},\n\nI came across this and thought of you: {{resource_link}}\n\nWe\u2019ve been working on CoreConX to solve a lot of these same challenges. Would love to chat if you\u2019re curious.\n\nCheers,\nDylan", category: "Follow-Up", usedCount: 0, variables: ["{{name}}", "{{resource_link}}"], description: "Share something useful, re-engage." },
+    { id: "6", name: "Break-Up Email", subject: "Closing the loop", body: "Hi {{name}},\n\nI\u2019ve reached out a couple of times and haven\u2019t heard back \u2014 totally understand. I\u2019ll close the loop on my end, but the door\u2019s always open if you want to revisit.\n\nWishing you and the crew all the best.\n\nDylan", category: "Follow-Up", usedCount: 0, variables: ["{{name}}"], description: "Final touch, graceful close." },
+    // Support
+    { id: "7", name: "Welcome Email", subject: "Welcome to CoreConX!", body: "Hi {{name}},\n\nWelcome aboard! We\u2019re excited to have {{company}} on CoreConX.\n\nHere\u2019s what to do next:\n1. Log in and set up your first project\n2. Add your drillers and helpers\n3. Start tracking shifts\n\nIf you need anything at all, just reply to this email.\n\nCheers,\nThe CoreConX Team", category: "Support", usedCount: 0, variables: ["{{name}}", "{{company}}"], description: "New user onboarding." },
+    { id: "8", name: "Bug Report Response", subject: "Re: Bug Report \u2014 We\u2019re on it", body: "Hi {{name}},\n\nThanks for flagging this. We\u2019ve logged the issue:\n\n\"{{issue_summary}}\"\n\nOur team is looking into it and we\u2019ll follow up once it\u2019s resolved. Appreciate your patience.\n\nBest,\nChuck\nCoreConX Support", category: "Support", usedCount: 0, variables: ["{{name}}", "{{issue_summary}}"], description: "Acknowledging a reported issue." },
+    { id: "9", name: "Feature Request Response", subject: "Re: Feature Request \u2014 {{feature}}", body: "Hi {{name}},\n\nThanks for the suggestion! We\u2019ve added \"{{feature}}\" to our roadmap for review.\n\nWe can\u2019t promise a timeline, but feedback like yours directly shapes what gets built. We\u2019ll keep you posted.\n\nBest,\nChuck\nCoreConX Support", category: "Support", usedCount: 0, variables: ["{{name}}", "{{feature}}"], description: "Acknowledging a feature ask." },
+    // Sales
+    { id: "10", name: "Pricing Quote", subject: "Your CoreConX pricing quote", body: "Hi {{name}},\n\nThanks for your interest in CoreConX! Here\u2019s the custom pricing we put together for {{company}}:\n\nPlan: {{features}}\nPrice: {{price}}/month\n\nThis includes onboarding support and priority access to new features. Let me know if you\u2019d like to move forward or if you have questions.\n\nBest,\nDylan", category: "Sales", usedCount: 0, variables: ["{{name}}", "{{company}}", "{{price}}", "{{features}}"], description: "Custom pricing for enterprise." },
+    { id: "11", name: "Trial Extension", subject: "Your trial has been extended", body: "Hi {{name}},\n\nGood news \u2014 we\u2019ve extended your CoreConX trial. Your new end date is {{new_end_date}}.\n\nTake the extra time to explore everything. If you have questions or want a walkthrough, just reply here.\n\nCheers,\nDylan", category: "Sales", usedCount: 0, variables: ["{{name}}", "{{new_end_date}}"], description: "Extending a trial period." },
   ]);
 
   // --- Fetchers ---
@@ -560,40 +636,79 @@ export default function EmailsPage() {
                 </div>
               ) : (
                 <div className="grid gap-3">
-                  {campaigns.map((c) => (
-                    <div key={c.id} className="bg-card border border-border rounded-xl p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-sm font-semibold text-foreground">{c.name}</h3>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium mt-1 inline-block ${
-                            c.status === "active" ? "bg-success/20 text-success" :
-                            c.status === "paused" ? "bg-warning/20 text-warning" :
-                            c.status === "completed" ? "bg-info/20 text-info" :
-                            "bg-card-hover text-muted"
-                          }`}>
-                            {c.status.charAt(0).toUpperCase() + c.status.slice(1)}
-                          </span>
-                        </div>
-                        <button className="px-3 py-1.5 text-xs text-muted hover:text-foreground border border-border rounded-lg hover:bg-card-hover transition-colors">
-                          Edit
+                  {campaigns.map((c) => {
+                    const isExpanded = expandedCampaignId === c.id;
+                    return (
+                      <div key={c.id} className="bg-card border border-border rounded-xl overflow-hidden">
+                        <button
+                          onClick={() => setExpandedCampaignId(isExpanded ? null : c.id)}
+                          className="w-full text-left p-4 hover:bg-card-hover/50 transition-colors"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-sm font-semibold text-foreground">{c.name}</h3>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                                  c.status === "active" ? "bg-success/20 text-success" :
+                                  c.status === "paused" ? "bg-warning/20 text-warning" :
+                                  c.status === "completed" ? "bg-info/20 text-info" :
+                                  "bg-card-hover text-muted"
+                                }`}>
+                                  {c.status.charAt(0).toUpperCase() + c.status.slice(1)}
+                                </span>
+                                <span className="text-[10px] text-muted">{c.sequence.length}-email sequence</span>
+                              </div>
+                            </div>
+                            <ChevronDown size={16} className={`text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                          </div>
+                          <p className="text-xs text-muted/70 mt-2">{c.description}</p>
+                          <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-border/50">
+                            <div>
+                              <p className="text-lg font-semibold text-foreground">{c.sent}</p>
+                              <p className="text-[10px] text-muted">Sent</p>
+                            </div>
+                            <div>
+                              <p className="text-lg font-semibold text-foreground">{c.opened}</p>
+                              <p className="text-[10px] text-muted">Opened</p>
+                            </div>
+                            <div>
+                              <p className="text-lg font-semibold text-foreground">{c.replied}</p>
+                              <p className="text-[10px] text-muted">Replied</p>
+                            </div>
+                          </div>
                         </button>
+                        {isExpanded && (
+                          <div className="border-t border-border px-4 pb-4 pt-3 space-y-3">
+                            <p className="text-xs font-semibold text-muted uppercase tracking-wider">Sequence Timeline</p>
+                            {c.sequence.map((email, idx) => (
+                              <div key={idx} className="relative pl-6 border-l-2 border-coreconx/30 ml-2">
+                                <div className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-coreconx border-2 border-card" />
+                                <div className="bg-background border border-border rounded-lg p-3">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-coreconx/15 text-coreconx-light font-medium shrink-0">Day {email.day}</span>
+                                        <span className="text-xs font-semibold text-foreground truncate">{email.label}</span>
+                                      </div>
+                                      <p className="text-xs text-muted mt-1 truncate">Subject: {email.subject}</p>
+                                      <p className="text-xs text-muted/60 mt-0.5 line-clamp-1">{email.body.slice(0, 100)}...</p>
+                                    </div>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setViewingSequenceEmail(email); }}
+                                      className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium text-coreconx-light border border-coreconx/30 hover:bg-coreconx/10 transition-colors"
+                                    >
+                                      <Eye size={10} />
+                                      View Full
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-border/50">
-                        <div>
-                          <p className="text-lg font-semibold text-foreground">{c.sent}</p>
-                          <p className="text-[10px] text-muted">Sent</p>
-                        </div>
-                        <div>
-                          <p className="text-lg font-semibold text-foreground">{c.opened}</p>
-                          <p className="text-[10px] text-muted">Opened</p>
-                        </div>
-                        <div>
-                          <p className="text-lg font-semibold text-foreground">{c.replied}</p>
-                          <p className="text-[10px] text-muted">Replied</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -616,35 +731,44 @@ export default function EmailsPage() {
                   <p className="text-xs text-muted/60 mt-1">Create templates for common responses</p>
                 </div>
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {templates.map((t) => (
-                    <div key={t.id} className="bg-card border border-border rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <h3 className="text-sm font-semibold text-foreground">{t.name}</h3>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-card-hover text-muted font-medium">
-                            {t.category}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-card-hover transition-colors" title="Duplicate">
-                            <Copy size={12} />
-                          </button>
-                          <button className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-card-hover transition-colors" title="Edit">
-                            <Edit3 size={12} />
-                          </button>
+                <div className="space-y-6">
+                  {["Outreach", "Follow-Up", "Support", "Sales"].map((category) => {
+                    const catTemplates = templates.filter((t) => t.category === category);
+                    if (catTemplates.length === 0) return null;
+                    return (
+                      <div key={category}>
+                        <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">{category}</h3>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {catTemplates.map((t) => (
+                            <button
+                              key={t.id}
+                              onClick={() => openTemplateEditor(t)}
+                              className="bg-card border border-border rounded-xl p-4 text-left hover:border-coreconx/50 hover:bg-coreconx/5 transition-all group"
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <div>
+                                  <h4 className="text-sm font-semibold text-foreground">{t.name}</h4>
+                                  <p className="text-[10px] text-muted/60 mt-0.5">{t.description}</p>
+                                </div>
+                                <Edit3 size={12} className="text-muted/40 group-hover:text-coreconx-light transition-colors shrink-0" />
+                              </div>
+                              <p className="text-xs text-muted font-medium">Subject: {t.subject}</p>
+                              <p className="text-xs text-muted/60 mt-1 line-clamp-2">{t.body}</p>
+                              <div className="flex items-center flex-wrap gap-1 mt-2">
+                                {t.variables.map((v) => (
+                                  <span key={v} className="text-[10px] px-1.5 py-0.5 rounded bg-coreconx/10 text-coreconx-light font-mono">{v}</span>
+                                ))}
+                              </div>
+                              <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/50">
+                                <span className="text-[10px] text-muted">Used {t.usedCount} times</span>
+                                <span className="text-[10px] text-coreconx-light font-medium">Click to edit</span>
+                              </div>
+                            </button>
+                          ))}
                         </div>
                       </div>
-                      <p className="text-xs text-muted font-medium">Subject: {t.subject}</p>
-                      <p className="text-xs text-muted/60 mt-1 line-clamp-3">{t.body}</p>
-                      <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/50">
-                        <span className="text-[10px] text-muted">Used {t.usedCount} times</span>
-                        <button className="text-[10px] text-coreconx-light hover:text-coreconx transition-colors font-medium">
-                          Use in Draft
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -839,6 +963,107 @@ export default function EmailsPage() {
               >
                 {savingDraft ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
                 Save Changes
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Sequence Email Viewer Modal */}
+      <Modal
+        open={!!viewingSequenceEmail}
+        onClose={() => setViewingSequenceEmail(null)}
+        title={viewingSequenceEmail?.label || "Sequence Email"}
+        subtitle={viewingSequenceEmail ? `Day ${viewingSequenceEmail.day}` : ""}
+      >
+        {viewingSequenceEmail && (
+          <div className="space-y-4">
+            <div className="bg-background rounded-lg border border-border overflow-hidden">
+              <div className="px-4 py-3 border-b border-border bg-card-hover/50">
+                <p className="text-xs text-muted"><span className="font-medium text-foreground">Subject:</span> {viewingSequenceEmail.subject}</p>
+                <p className="text-xs text-muted mt-1"><span className="font-medium text-foreground">Trigger:</span> Day {viewingSequenceEmail.day}</p>
+              </div>
+              <div className="p-4">
+                <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{viewingSequenceEmail.body}</pre>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setViewingSequenceEmail(null)}
+                className="px-4 py-2 text-sm text-muted hover:text-foreground transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Template Edit Modal */}
+      <Modal
+        open={!!editingTemplate}
+        onClose={() => setEditingTemplate(null)}
+        title={editingTemplate?.name || "Edit Template"}
+        subtitle={editingTemplate ? `${editingTemplate.category} template` : ""}
+      >
+        {editingTemplate && (
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-muted block mb-1">Category</label>
+              <p className="text-sm text-foreground">{editingTemplate.category}</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted block mb-1">Description</label>
+              <p className="text-sm text-foreground">{editingTemplate.description}</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted block mb-1">Variables</label>
+              <div className="flex flex-wrap gap-1">
+                {editingTemplate.variables.map((v) => (
+                  <span key={v} className="text-xs px-2 py-0.5 rounded bg-coreconx/10 text-coreconx-light font-mono">{v}</span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted block mb-1">Subject</label>
+              <input
+                value={editTemplateSubject}
+                onChange={(e) => setEditTemplateSubject(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted block mb-1">Body</label>
+              <textarea
+                value={editTemplateBody}
+                onChange={(e) => setEditTemplateBody(e.target.value)}
+                rows={10}
+                className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx resize-y font-sans leading-relaxed"
+              />
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
+              <button
+                onClick={() => setEditingTemplate(null)}
+                className="px-4 py-2 text-sm text-muted hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setEditingTemplate(null);
+                  // Mock: would open draft compose with template content
+                }}
+                className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-coreconx/40 text-coreconx-light text-sm font-medium hover:bg-coreconx/10 transition-colors"
+              >
+                <FileText size={14} />
+                Use in Draft
+              </button>
+              <button
+                onClick={saveTemplate}
+                className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-coreconx text-white text-sm font-medium hover:bg-coreconx/90 transition-colors"
+              >
+                <CheckCheck size={14} />
+                Save
               </button>
             </div>
           </div>
