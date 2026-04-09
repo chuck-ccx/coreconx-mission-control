@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bot, Cpu, Activity, Zap, Loader2, Wifi, WifiOff } from "lucide-react";
+import { Bot, Cpu, Activity, Zap, Loader2, Wifi, WifiOff, Power } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 interface Agent {
@@ -13,6 +13,7 @@ interface Agent {
   taskCount: number;
   lastActive: string | null;
   techStack: string[];
+  enabled: boolean;
 }
 
 interface ApiStatus {
@@ -52,6 +53,7 @@ export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [apiStatus, setApiStatus] = useState<ApiStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -63,6 +65,20 @@ export default function AgentsPage() {
       setLoading(false);
     });
   }, []);
+
+  const toggleAgent = async (id: string, currentEnabled: boolean) => {
+    setToggling(id);
+    const result = await apiFetch<{ id: string; enabled: boolean }>(
+      `/api/agents/${id}/toggle`,
+      { method: "PUT", body: JSON.stringify({ enabled: !currentEnabled }) }
+    );
+    if (result) {
+      setAgents((prev) =>
+        prev.map((a) => a.id === id ? { ...a, enabled: result.enabled } : a)
+      );
+    }
+    setToggling(null);
+  };
 
   const formatUptime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -103,25 +119,43 @@ export default function AgentsPage() {
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-coreconx/20 flex items-center justify-center">
-                  <Bot size={24} className="text-coreconx-light" />
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${agent.enabled ? 'bg-coreconx/20' : 'bg-muted/20'}`}>
+                  <Bot size={24} className={agent.enabled ? "text-coreconx-light" : "text-muted"} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">
+                  <h3 className={`text-lg font-semibold ${agent.enabled ? 'text-foreground' : 'text-muted'}`}>
                     {agent.name}
                   </h3>
                   <p className="text-xs text-muted">{agent.role}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div
-                  className={`w-2 h-2 rounded-full ${cfg.color} ${agent.status === "active" ? "animate-pulse" : ""}`}
-                />
-                <span
-                  className={`text-xs font-medium ${cfg.textColor}`}
-                >
-                  {cfg.label}
-                </span>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-2 h-2 rounded-full ${agent.enabled ? cfg.color : 'bg-muted/50'} ${agent.status === "active" && agent.enabled ? "animate-pulse" : ""}`}
+                  />
+                  <span
+                    className={`text-xs font-medium ${agent.enabled ? cfg.textColor : 'text-muted'}`}
+                  >
+                    {agent.enabled ? cfg.label : "Off"}
+                  </span>
+                </div>
+                {agent.id !== "chuck" && (
+                  <button
+                    onClick={() => toggleAgent(agent.id, agent.enabled)}
+                    disabled={toggling === agent.id}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-coreconx/50 ${
+                      agent.enabled ? 'bg-coreconx' : 'bg-border'
+                    } ${toggling === agent.id ? 'opacity-50' : ''}`}
+                    title={agent.enabled ? "Disable agent" : "Enable agent"}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        agent.enabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                )}
               </div>
             </div>
 

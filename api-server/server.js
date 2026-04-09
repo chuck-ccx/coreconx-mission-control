@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { execSync } from 'child_process';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 
 const app = express();
 const PORT = 3100;
@@ -677,9 +677,22 @@ function resolveModel(modelTier, sessionModel) {
   return modelTier || 'Unknown';
 }
 
+// Helper: read cron jobs and return map of agent name -> enabled
+function getCronEnabledMap() {
+  const map = {};
+  try {
+    const cronData = JSON.parse(readFileSync(process.env.HOME + '/.openclaw/cron/jobs.json', 'utf-8'));
+    for (const job of (cronData.jobs || [])) {
+      map[job.name] = job.enabled !== false;
+    }
+  } catch { /* file may not exist */ }
+  return map;
+}
+
 app.get('/api/agents', (req, res) => {
   const agents = [];
   const now = Date.now();
+  const cronEnabled = getCronEnabledMap();
 
   // 1. Read REGISTRY.md
   let registryAgents = [];
@@ -741,27 +754,88 @@ app.get('/api/agents', (req, res) => {
     taskCount: taskCounts['Chuck'] || taskCounts['Chuck (AI)'] || 0,
     lastActive: mainSession ? new Date(mainSession.updatedAt).toISOString() : null,
     techStack: ['OpenClaw', 'Claude Opus 4', 'Linear', 'Google Workspace', 'GitHub'],
+    enabled: true, // Chuck is always on
   });
 
   // Add agents from REGISTRY.md
   for (const ra of registryAgents) {
     const matchedSession = sessions.find(s => s.agentId === ra.id);
     const isActive = ra.registryStatus?.toLowerCase() === 'active';
+    const enabled = cronEnabled[ra.id] !== undefined ? cronEnabled[ra.id] : isActive;
     agents.push({
       id: ra.id,
       name: ra.id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
       role: ra.purpose,
       model: resolveModel(ra.modelTier, matchedSession?.model),
-      status: matchedSession && (now - matchedSession.updatedAt) < 600000
-        ? 'active'
+      status: !enabled ? 'idle'
+        : matchedSession && (now - matchedSession.updatedAt) < 600000 ? 'active'
         : isActive ? 'idle' : 'error',
       taskCount: taskCounts[ra.id] || 0,
       lastActive: matchedSession ? new Date(matchedSession.updatedAt).toISOString() : ra.spawned || null,
       techStack: ra.notes ? ra.notes.split(/[.,;]/).map(s => s.trim()).filter(Boolean).slice(0, 5) : [],
+      enabled,
     });
   }
 
   res.json(agents);
+});
+
+// Toggle agent on/off
+app.put('/api/agents/:id/toggle', (req, res) => {
+  const agentId = req.params.id;
+  const { enabled } = req.body;
+
+  if (agentId === 'chuck') {
+    return res.status(400).json({ error: 'Cannot disable Chuck' });
+  }
+
+  if (typeof enabled !== 'boolean') {
+    return res.status(400).json({ error: 'enabled must be a boolean' });
+  }
+
+  // 1. Update cron jobs.json
+  const cronPath = process.env.HOME + '/.openclaw/cron/jobs.json';
+  try {
+    const cronData = JSON.parse(readFileSync(cronPath, 'utf-8'));
+    const job = cronData.jobs.find(j => j.name === agentId);
+    if (job) {
+      job.enabled = enabled;
+      job.updatedAtMs = Date.now();
+      writeFileSync(cronPath, JSON.stringify(cronData, null, 2));
+    }
+  } catch (e) {
+    return res.status(500).json({ error: 'Failed to update cron config', detail: e.message });
+  }
+
+  // 2. Update REGISTRY.md
+  const registryPath = process.env.HOME + '/.openclaw/workspace/agents/REGISTRY.md';
+  try {
+    let text = readFileSync(registryPath, 'utf-8');
+    const lines = text.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes('|') && lines[i].includes(agentId)) {
+        const cols = lines[i].split('|').map(c => c.trim());
+        // cols: ['', agent, purpose, tier, status, spawned, notes, '']
+        const statusIdx = cols.findIndex((c, idx) => idx > 0 && (c === 'Active' || c === 'Paused'));
+        if (statusIdx !== -1) {
+          cols[statusIdx] = enabled ? 'Active' : 'Paused';
+          lines[i] = '| ' + cols.filter(Boolean).join(' | ') + ' |';
+        }
+      }
+    }
+    writeFileSync(registryPath, lines.join('\n'));
+  } catch { /* non-critical */ }
+
+  // 3. Reload cron daemon
+  try {
+    execSync('/opt/homebrew/bin/openclaw cron reload 2>/dev/null || true', {
+      timeout: 5000,
+      encoding: 'utf-8',
+      env: { ...process.env, PATH: '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin' },
+    });
+  } catch { /* non-critical */ }
+
+  res.json({ id: agentId, enabled });
 });
 
 // ==================== System Status ====================
