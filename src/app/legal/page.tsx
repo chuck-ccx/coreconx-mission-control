@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { FileText, ExternalLink, Search, Shield, Scale, BookOpen } from "lucide-react";
+import { useState, useEffect } from "react";
+import { FileText, ExternalLink, Search, Shield, Scale, BookOpen, Loader2 } from "lucide-react";
 import { Modal } from "@/components/modal";
+import { apiFetch } from "@/lib/api";
 
 interface LegalDoc {
   id: string;
@@ -15,7 +16,7 @@ interface LegalDoc {
   lastUpdated: string;
 }
 
-const legalDocs: LegalDoc[] = [
+const fallbackDocs: LegalDoc[] = [
   // Phase 1
   {
     id: "tos",
@@ -246,9 +247,20 @@ const phaseIcons: Record<string, typeof Shield> = {
 };
 
 export default function LegalPage() {
+  const [legalDocs, setLegalDocs] = useState<LegalDoc[]>(fallbackDocs);
+  const [loading, setLoading] = useState(true);
   const [selectedDoc, setSelectedDoc] = useState<LegalDoc | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPhase, setFilterPhase] = useState<string>("all");
+
+  useEffect(() => {
+    apiFetch<LegalDoc[]>("/api/legal/docs").then((data) => {
+      if (data && Array.isArray(data) && data.length > 0) {
+        setLegalDocs(data);
+      }
+      setLoading(false);
+    });
+  }, []);
 
   const filtered = legalDocs.filter((doc) => {
     const matchesSearch =
@@ -269,7 +281,7 @@ export default function LegalPage() {
             Legal Documents
           </h1>
           <p className="text-muted text-sm mt-1">
-            21 documents across all phases — click any to view details
+            {legalDocs.length} documents across all phases — click any to view details
           </p>
         </div>
       </div>
@@ -277,7 +289,7 @@ export default function LegalPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total Docs", value: 21 },
+          { label: "Total Docs", value: legalDocs.length },
           { label: "Live", value: legalDocs.filter((d) => d.status === "Live").length },
           { label: "Draft", value: legalDocs.filter((d) => d.status === "Draft").length },
           { label: "Not Published", value: legalDocs.filter((d) => d.status === "Not Published").length },
@@ -319,6 +331,12 @@ export default function LegalPage() {
       </div>
 
       {/* Document Grid */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 size={24} className="animate-spin text-coreconx-light" />
+          <span className="ml-2 text-sm text-muted">Loading legal documents...</span>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((doc) => {
           const Icon = phaseIcons[doc.phase] || FileText;

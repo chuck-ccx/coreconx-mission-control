@@ -14,6 +14,7 @@ import {
   Shield,
   AlertTriangle,
   FileText,
+  Send,
   LogOut,
   Menu,
   X,
@@ -23,6 +24,7 @@ import { useAuth } from "@/components/auth-guard";
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/crm", label: "CRM", icon: Users },
+  { href: "/outreach", label: "Outreach", icon: Send },
   { href: "/emails", label: "Emails", icon: Mail },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/legal", label: "Legal Docs", icon: FileText },

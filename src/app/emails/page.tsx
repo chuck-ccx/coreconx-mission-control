@@ -220,6 +220,13 @@ export default function EmailsPage() {
   const [replyFrom, setReplyFrom] = useState("chuck@coreconx.group");
   const [replyMessageId, setReplyMessageId] = useState<string | undefined>();
   const [savingDraft, setSavingDraft] = useState(false);
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [sendTo, setSendTo] = useState("");
+  const [sendSubject, setSendSubject] = useState("");
+  const [sendBody, setSendBody] = useState("");
+  const [sendFrom, setSendFrom] = useState("chuck@coreconx.group");
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const fetchDrafts = async () => {
     setLoadingDrafts(true);
@@ -271,6 +278,40 @@ export default function EmailsPage() {
     setReplyBody("");
     setReplyMessageId(msg.id);
     setShowReplyForm(true);
+  };
+
+  const openSendModal = (subject: string, body: string) => {
+    setSendTo("");
+    setSendSubject(subject);
+    setSendBody(body);
+    setSendFrom("chuck@coreconx.group");
+    setSendResult(null);
+    setSendModalOpen(true);
+  };
+
+  const sendEmail = async () => {
+    if (!sendTo || !sendSubject || !sendBody) return;
+    setSending(true);
+    setSendResult(null);
+    const result = await apiFetch<{ success?: boolean; messageId?: string }>("/api/emails/send", {
+      method: "POST",
+      body: JSON.stringify({
+        to: sendTo,
+        subject: sendSubject,
+        body: sendBody,
+        from: sendFrom,
+      }),
+    });
+    setSending(false);
+    if (result) {
+      setSendResult({ type: "success", message: "Email sent successfully!" });
+      setTimeout(() => {
+        setSendModalOpen(false);
+        setSendResult(null);
+      }, 1500);
+    } else {
+      setSendResult({ type: "error", message: "Failed to send email. Please try again." });
+    }
   };
 
   const emailAction = async (messageId: string, action: "archive" | "mark-read" | "trash") => {
@@ -463,6 +504,16 @@ export default function EmailsPage() {
                   <span className="text-xs px-2 py-1 rounded bg-card-hover text-muted">
                     {email.status}
                   </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openSendModal(email.subject, email.body);
+                    }}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-coreconx text-white font-medium hover:bg-coreconx/90 transition-colors"
+                  >
+                    <Send size={12} />
+                    Send
+                  </button>
                 </button>
               ))}
             </div>
@@ -587,6 +638,17 @@ export default function EmailsPage() {
                                   )}
                                 </div>
                               )}
+
+                              {/* Send Button */}
+                              <div className="flex justify-end">
+                                <button
+                                  onClick={() => openSendModal(tpl.subject, tpl.bodyPreview)}
+                                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-coreconx text-white text-sm font-medium hover:bg-coreconx/90 transition-colors"
+                                >
+                                  <Send size={14} />
+                                  Send This Template
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1051,6 +1113,86 @@ export default function EmailsPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Send Email Modal */}
+      <Modal
+        open={sendModalOpen}
+        onClose={() => { setSendModalOpen(false); setSendResult(null); }}
+        title="Send Email"
+        subtitle="Customize placeholders like [Name], [Company] before sending"
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted block mb-1">To</label>
+              <input
+                value={sendTo}
+                onChange={(e) => setSendTo(e.target.value)}
+                placeholder="recipient@example.com"
+                className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted block mb-1">From</label>
+              <select
+                value={sendFrom}
+                onChange={(e) => setSendFrom(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx"
+              >
+                {aliases.map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-muted block mb-1">Subject</label>
+            <input
+              value={sendSubject}
+              onChange={(e) => setSendSubject(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted block mb-1">Body</label>
+            <textarea
+              value={sendBody}
+              onChange={(e) => setSendBody(e.target.value)}
+              rows={12}
+              className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx resize-y font-sans leading-relaxed"
+            />
+          </div>
+
+          {sendResult && (
+            <div
+              className={`text-sm px-4 py-3 rounded-lg ${
+                sendResult.type === "success"
+                  ? "bg-success/20 text-success"
+                  : "bg-error/20 text-error"
+              }`}
+            >
+              {sendResult.message}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => { setSendModalOpen(false); setSendResult(null); }}
+              className="px-4 py-2 text-sm text-muted hover:text-foreground transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={sendEmail}
+              disabled={sending || !sendTo || !sendSubject || !sendBody}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-coreconx text-white text-sm font-medium hover:bg-coreconx/90 transition-colors disabled:opacity-50"
+            >
+              {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+              Send Email
+            </button>
+          </div>
+        </div>
       </Modal>
 
     </div>

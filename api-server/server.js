@@ -931,6 +931,63 @@ app.put('/api/agents/:id/toggle', (req, res) => {
   res.json({ id: agentId, enabled });
 });
 
+// ==================== Outreach Tracker (in-memory) ====================
+// TODO: persist to Google Sheet when ready
+
+const outreachContacts = [];
+let outreachNextId = 1;
+
+app.get('/api/outreach', (req, res) => {
+  res.json(outreachContacts);
+});
+
+app.post('/api/outreach', (req, res) => {
+  const { name, company, email, status, notes, nextFollowUp } = req.body;
+  if (!name || !company) return res.status(400).json({ error: 'name and company are required' });
+  const contact = {
+    id: outreachNextId++,
+    name,
+    company,
+    email: email || '',
+    status: status || 'Not Contacted',
+    lastContactDate: null,
+    nextFollowUp: nextFollowUp || null,
+    notes: notes || '',
+    createdAt: new Date().toISOString(),
+  };
+  outreachContacts.push(contact);
+  res.json(contact);
+});
+
+app.patch('/api/outreach/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const contact = outreachContacts.find(c => c.id === id);
+  if (!contact) return res.status(404).json({ error: 'Contact not found' });
+  const { name, company, email, status, notes, lastContactDate, nextFollowUp } = req.body;
+  if (name !== undefined) contact.name = name;
+  if (company !== undefined) contact.company = company;
+  if (email !== undefined) contact.email = email;
+  if (status !== undefined) {
+    contact.status = status;
+    // Auto-set lastContactDate when status changes to an active state
+    if (['Emailed', 'Followed Up', 'Responded', 'Converted'].includes(status)) {
+      contact.lastContactDate = new Date().toISOString().split('T')[0];
+    }
+  }
+  if (notes !== undefined) contact.notes = notes;
+  if (lastContactDate !== undefined) contact.lastContactDate = lastContactDate;
+  if (nextFollowUp !== undefined) contact.nextFollowUp = nextFollowUp;
+  res.json(contact);
+});
+
+app.delete('/api/outreach/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const idx = outreachContacts.findIndex(c => c.id === id);
+  if (idx === -1) return res.status(404).json({ error: 'Contact not found' });
+  outreachContacts.splice(idx, 1);
+  res.json({ deleted: true });
+});
+
 // ==================== System Status ====================
 
 app.get('/api/status', (req, res) => {
@@ -952,6 +1009,48 @@ app.get('/api/status', (req, res) => {
     },
     timestamp: new Date().toISOString(),
   });
+});
+
+// ==================== Legal Docs ====================
+
+app.get('/api/legal/docs', (req, res) => {
+  // Try to pull from Google Drive; fall back to hardcoded list
+  try {
+    const raw = gog('drive search "legal" --max 50 -j');
+    if (raw) {
+      const files = JSON.parse(raw);
+      if (Array.isArray(files) && files.length > 0) {
+        return res.json(files);
+      }
+    }
+  } catch (e) {
+    console.error('Legal docs Drive search failed, using fallback:', e.message);
+  }
+
+  // Fallback: serve the canonical legal doc list
+  res.json([
+    { id: "tos", title: "Terms of Service", phase: "Phase 1", category: "MVP Launch", url: "https://docs.google.com/document/d/1k8123ZrJiTJhrrnYHtltx5ZJmbrDPz-NEtJHyVKtu2A/edit", summary: "Governs user access to CoreConX platform. Covers account creation, acceptable use, intellectual property, limitation of liability, termination. BC/Canada jurisdiction, PIPEDA compliant. Entity: CoreConX (not incorporated). Free during early access, $150/mo per user after.", status: "Live", lastUpdated: "Apr 8" },
+    { id: "privacy", title: "Privacy Policy", phase: "Phase 1", category: "MVP Launch", url: "https://docs.google.com/document/d/1e4Y9yMl8QTsX1W8k3cQ6qcUWuNkVBYNeAoUc8hDskSM/edit", summary: "Details how CoreConX collects, uses, stores, and protects personal information. PIPEDA compliant. Privacy Officer: Dylan Fader. 30-day data retention after termination. Covers drilling performance data, shift records, project information.", status: "Live", lastUpdated: "Apr 8" },
+    { id: "aup", title: "Acceptable Use Policy", phase: "Phase 1", category: "MVP Launch", url: "https://docs.google.com/document/d/10aUm-xY3tmYVE6nr002sEWTiTjoj25AKvZAN2HLsI00/edit", summary: "Defines prohibited activities on the platform — no unauthorized access, no data scraping, no abuse of drilling data. Enforcement procedures and account suspension policies.", status: "Live", lastUpdated: "Apr 8" },
+    { id: "cookie", title: "Cookie Policy", phase: "Phase 1", category: "MVP Launch", url: "https://docs.google.com/document/d/1jUpikcRCTqdLIiamXr7xrBnxDfyIWyfVbXdzvjKBpZY/edit", summary: "Explains use of cookies and tracking technologies. Essential cookies, analytics, preferences. How to manage/disable cookies. Compliant with Canadian privacy requirements.", status: "Live", lastUpdated: "Apr 8" },
+    { id: "getting-started", title: "Getting Started Guide", phase: "Phase 1", category: "MVP Launch", url: "https://docs.google.com/document/d/1ehRkppftE-L53QiVqNTeBL9pXZP2gHqlcFKK73vFSdc/edit", summary: "Onboarding guide for new users. Account setup, first drill log, shift tracking, project creation. App coming soon to App Store/Google Play.", status: "Live", lastUpdated: "Apr 8" },
+    { id: "subscription", title: "Subscription Agreement", phase: "Phase 2", category: "Paid Plans & Data", url: "#", summary: "Covers subscription plans, billing cycles, payment terms. Free during early access, then $150/mo per user. 30-day data retention after termination. No payment processing system yet.", status: "Draft", lastUpdated: "Apr 8" },
+    { id: "dpa", title: "Data Processing Agreement", phase: "Phase 2", category: "Paid Plans & Data", url: "#", summary: "Governs how CoreConX processes customer drilling data. Data security measures, breach notification procedures, sub-processor management. SOC 2 claims removed — honest about current security posture.", status: "Draft", lastUpdated: "Apr 8" },
+    { id: "sla", title: "Service Level Agreement", phase: "Phase 2", category: "Paid Plans & Data", url: "#", summary: "Uptime commitments and support response times. Chuck (AI) provides 24/7 support. No enterprise response time promises. Status page planned but not live yet.", status: "Draft", lastUpdated: "Apr 8" },
+    { id: "refund", title: "Refund & Cancellation Policy", phase: "Phase 2", category: "Paid Plans & Data", url: "#", summary: "How to cancel subscriptions and request refunds. 30-day data retention after termination (consistent across all docs). Pro-rated refunds for annual plans.", status: "Draft", lastUpdated: "Apr 8" },
+    { id: "eula", title: "End User License Agreement", phase: "Phase 2", category: "Paid Plans & Data", url: "#", summary: "License terms for the CoreConX mobile app. Usage rights, restrictions, intellectual property. Standard EULA for mobile applications distributed through app stores.", status: "Draft", lastUpdated: "Apr 8" },
+    { id: "marketplace-terms", title: "Marketplace Terms", phase: "Phase 3", category: "Marketplace", url: "#", summary: "Terms for the contractor-mine matching marketplace. How listings work, matching process, payment flow through platform. NOT FOR PUBLICATION — Phase 3 not built yet.", status: "Not Published", lastUpdated: "Apr 8" },
+    { id: "contractor", title: "Independent Contractor Agreement", phase: "Phase 3", category: "Marketplace", url: "#", summary: "Template agreement for drill contractors listing on the marketplace. Responsibilities, insurance requirements, performance standards. NOT FOR PUBLICATION.", status: "Not Published", lastUpdated: "Apr 8" },
+    { id: "commission", title: "Commission & Fee Schedule", phase: "Phase 3", category: "Marketplace", url: "#", summary: "Platform fees and commission structure. $1/meter model for marketplace transactions. NOT FOR PUBLICATION — pricing model still being finalized.", status: "Not Published", lastUpdated: "Apr 8" },
+    { id: "dispute", title: "Dispute Resolution Policy", phase: "Phase 3", category: "Marketplace", url: "#", summary: "How disputes between mines and contractors are handled. Mediation process, escalation procedures, resolution timelines. NOT FOR PUBLICATION.", status: "Not Published", lastUpdated: "Apr 8" },
+    { id: "insurance-req", title: "Insurance & Liability Requirements", phase: "Phase 3", category: "Marketplace", url: "#", summary: "Minimum insurance requirements for contractors on the marketplace. E&O, general liability, workers comp. NOT FOR PUBLICATION.", status: "Not Published", lastUpdated: "Apr 8" },
+    { id: "nda", title: "NDA Template", phase: "Phase 3", category: "Marketplace", url: "#", summary: "Non-disclosure agreement template for sensitive project data shared between mines and contractors through the marketplace.", status: "Not Published", lastUpdated: "Apr 8" },
+    { id: "casl", title: "CASL Compliance Policy", phase: "General", category: "Legal", url: "https://docs.google.com/document/d/1hxNOjpdPFZ9WK7eb1Ht32yOc8_GqXVTSTOOY0xaLOPQ/edit", summary: "Canadian Anti-Spam Legislation compliance. Consent requirements for commercial emails, unsubscribe mechanisms, record-keeping. Critical for email outreach campaigns.", status: "Live", lastUpdated: "Apr 8" },
+    { id: "pipeda", title: "PIPEDA Compliance Policy", phase: "General", category: "Legal", url: "https://docs.google.com/document/d/1yX1T1TMrsxFPhcAVzkerL48hGhHVNHjm3oPCbUIIbLo/edit", summary: "Personal Information Protection and Electronic Documents Act compliance. 10 fair information principles, consent management, access rights. Privacy Officer: Dylan Fader.", status: "Live", lastUpdated: "Apr 8" },
+    { id: "ip-assignment", title: "IP Assignment Agreement", phase: "General", category: "Legal", url: "https://docs.google.com/document/d/1CvJaeAZP6ihCxAgM2Ow01GdhYdLlkU-bFdd0PRq37vI/edit", summary: "Intellectual property assignment for contractors who built the app. Ensures CoreConX owns all code, designs, and IP created during development.", status: "Live", lastUpdated: "Apr 8" },
+    { id: "employee", title: "Employee & Contractor Agreement", phase: "General", category: "Legal", url: "https://docs.google.com/document/d/1BklnEoyttFVzfIgJPgKlggWwitV1-ZYh-Lwa8JbExq0/edit", summary: "Template for hiring employees or contractors. Roles, compensation, IP ownership, confidentiality, termination. No employees currently — for future use.", status: "Live", lastUpdated: "Apr 8" },
+    { id: "insurance-internal", title: "Insurance Requirements (Internal)", phase: "General", category: "Legal", url: "https://docs.google.com/document/d/1gM0MKa_LKJc2sVknxODg_X6p5zG5YveRBXnlOBOZLFw/edit", summary: "Internal reference for insurance needs — E&O, cyber liability, general business insurance. Planning document for when CoreConX incorporates.", status: "Live", lastUpdated: "Apr 8" },
+  ]);
 });
 
 // ==================== Health ====================
