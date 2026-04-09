@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { execSync, exec } from 'child_process';
+import { execSync, exec, execFile } from 'child_process';
 import { readFileSync, writeFileSync } from 'fs';
 
 const app = express();
@@ -327,9 +327,10 @@ app.post('/api/tasks/:id/approve', (req, res) => {
 
   // Fire-and-forget: notify OpenClaw to pick up the task immediately
   const text = `Task approved: ${issue.identifier} - ${issue.title}`;
-  const cmd = `/opt/homebrew/bin/openclaw system event --text '${text.replace(/'/g, "\\'")}' --mode now`;
-  console.log(`[approve] firing system event: ${cmd}`);
-  exec(cmd, { env: { ...process.env, PATH: `/opt/homebrew/bin:${process.env.PATH}` } }, (err, stdout, stderr) => {
+  console.log(`[approve] firing system event: ${text}`);
+  execFile('/opt/homebrew/bin/openclaw', ['system', 'event', '--text', text, '--mode', 'now'], {
+    env: { ...process.env, PATH: `/opt/homebrew/bin:${process.env.PATH}` }
+  }, (err, stdout, stderr) => {
     if (err) {
       console.error(`[approve] OpenClaw notify FAILED: ${err.message}`);
       if (stderr) console.error(`[approve] stderr: ${stderr}`);
