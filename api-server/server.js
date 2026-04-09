@@ -9,6 +9,8 @@ const PORT = 3100;
 app.use(cors({
   origin: [
     'https://coreconx-mission-control.netlify.app',
+    /^https?:\/\/.*\.vercel\.app$/,
+    /^https?:\/\/(www\.)?ccxmc\.ca$/,
     /^http:\/\/100\.\d+\.\d+\.\d+/,
     'http://localhost:3000',
   ],
