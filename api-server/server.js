@@ -681,9 +681,9 @@ function resolveModel(modelTier, sessionModel) {
 function getCronEnabledMap() {
   const map = {};
   try {
-    const cronData = JSON.parse(readFileSync(process.env.HOME + '/.openclaw/cron/jobs.json', 'utf-8'));
+    const cronData = JSON.parse(readFileSync(process.env.HOME + '/.openclaw/workspace/cron/jobs.json', 'utf-8'));
     for (const job of (cronData.jobs || [])) {
-      map[job.name] = job.enabled !== false;
+      map[job.id] = job.enabled !== false;
     }
   } catch { /* file may not exist */ }
   return map;
