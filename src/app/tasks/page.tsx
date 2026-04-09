@@ -303,7 +303,33 @@ export default function TasksPage() {
                     >
                       <div className="flex items-start justify-between">
                         <span className="text-xs font-mono text-muted">{issue.identifier}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${p.class}`}>{p.label}</span>
+                        <div className="relative" ref={priorityDropdown === issue.id ? priorityDropdownRef : undefined}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setPriorityDropdown(priorityDropdown === issue.id ? null : issue.id); }}
+                            disabled={changingPriority === issue.id}
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-medium cursor-pointer hover:ring-1 hover:ring-coreconx/40 transition-colors flex items-center gap-1 ${p.class} disabled:opacity-50`}
+                          >
+                            {changingPriority === issue.id ? <Loader2 size={10} className="animate-spin" /> : null}
+                            {p.label}
+                            <ChevronDown size={8} />
+                          </button>
+                          {priorityDropdown === issue.id && (
+                            <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[120px]">
+                              {[1, 2, 3, 4, 0].map(pr => (
+                                <button
+                                  key={pr}
+                                  onClick={(e) => { e.stopPropagation(); changePriority(issue, pr); }}
+                                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-border/50 transition-colors flex items-center gap-2 ${
+                                    issue.priority === pr ? "font-medium" : "text-foreground"
+                                  }`}
+                                >
+                                  <span className={`w-2 h-2 rounded-full ${priorityLabels[pr].class}`} />
+                                  <span className={issue.priority === pr ? priorityLabels[pr].class.split(" ")[1] : ""}>{priorityLabels[pr].label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <h4 className="text-sm font-medium text-foreground mt-2">{issue.title}</h4>
                       {issue.description && (
