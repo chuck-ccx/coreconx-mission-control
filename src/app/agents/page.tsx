@@ -5,12 +5,14 @@ import { Bot, Cpu, Activity, Zap, Loader2, Wifi, WifiOff } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 interface Agent {
+  id: string;
   name: string;
   role: string;
   model: string;
-  status: "online" | "idle" | "offline";
-  currentTask: string | null;
-  tasksCompleted: number;
+  status: "active" | "idle" | "error";
+  taskCount: number;
+  lastActive: string | null;
+  techStack: string[];
 }
 
 interface ApiStatus {
@@ -25,29 +27,10 @@ interface ApiStatus {
   timestamp: string;
 }
 
-const defaultAgents: Agent[] = [
-  {
-    name: "Chuck",
-    role: "COO — Operations & Strategy",
-    model: "Claude Opus 4.6",
-    status: "online",
-    currentTask: "Wiring Mission Control to live APIs",
-    tasksCompleted: 47,
-  },
-  {
-    name: "Nightly Researcher",
-    role: "CRM enrichment — 5 companies/night",
-    model: "Claude Haiku",
-    status: "idle",
-    currentTask: null,
-    tasksCompleted: 2,
-  },
-];
-
 const statusConfig = {
-  online: { color: "bg-success", label: "Online", textColor: "text-success" },
+  active: { color: "bg-success", label: "Active", textColor: "text-success" },
   idle: { color: "bg-warning", label: "Idle", textColor: "text-warning" },
-  offline: { color: "bg-muted", label: "Offline", textColor: "text-muted" },
+  error: { color: "bg-danger", label: "Error", textColor: "text-danger" },
 };
 
 const techStack = [
@@ -66,13 +49,17 @@ const techStack = [
 ];
 
 export default function AgentsPage() {
-  const [agents] = useState<Agent[]>(defaultAgents);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [apiStatus, setApiStatus] = useState<ApiStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch<ApiStatus>("/api/status").then((data) => {
-      if (data) setApiStatus(data);
+    Promise.all([
+      apiFetch<ApiStatus>("/api/status"),
+      apiFetch<Agent[]>("/api/agents"),
+    ]).then(([statusData, agentsData]) => {
+      if (statusData) setApiStatus(statusData);
+      if (agentsData) setAgents(agentsData);
       setLoading(false);
     });
   }, []);
@@ -98,9 +85,20 @@ export default function AgentsPage() {
 
       {/* Agent Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {agents.map((agent) => (
+        {loading && agents.length === 0 ? (
+          <div className="col-span-full flex items-center justify-center py-8">
+            <Loader2 size={20} className="text-muted animate-spin" />
+            <span className="ml-2 text-sm text-muted">Loading agents...</span>
+          </div>
+        ) : agents.length === 0 ? (
+          <div className="col-span-full text-sm text-muted text-center py-8">
+            No agents found. API may be offline.
+          </div>
+        ) : agents.map((agent) => {
+          const cfg = statusConfig[agent.status] || statusConfig.idle;
+          return (
           <div
-            key={agent.name}
+            key={agent.id}
             className="bg-card border border-border rounded-xl p-5 hover:border-coreconx/40 transition-colors"
           >
             <div className="flex items-start justify-between">
@@ -117,16 +115,12 @@ export default function AgentsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <div
-                  className={`w-2 h-2 rounded-full ${
-                    statusConfig[agent.status].color
-                  } ${agent.status === "online" ? "animate-pulse" : ""}`}
+                  className={`w-2 h-2 rounded-full ${cfg.color} ${agent.status === "active" ? "animate-pulse" : ""}`}
                 />
                 <span
-                  className={`text-xs font-medium ${
-                    statusConfig[agent.status].textColor
-                  }`}
+                  className={`text-xs font-medium ${cfg.textColor}`}
                 >
-                  {statusConfig[agent.status].label}
+                  {cfg.label}
                 </span>
               </div>
             </div>
@@ -139,20 +133,32 @@ export default function AgentsPage() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <Activity size={14} className="text-muted" />
-                <span className="text-sm text-foreground">
-                  {agent.currentTask || "No active task"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
                 <Zap size={14} className="text-muted" />
                 <span className="text-sm text-muted">
-                  {agent.tasksCompleted} tasks completed
+                  {agent.taskCount} assigned task{agent.taskCount !== 1 ? "s" : ""}
                 </span>
               </div>
+              {agent.lastActive && (
+                <div className="flex items-center gap-2">
+                  <Activity size={14} className="text-muted" />
+                  <span className="text-sm text-muted">
+                    Last active: {new Date(agent.lastActive).toLocaleString()}
+                  </span>
+                </div>
+              )}
+              {agent.techStack.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {agent.techStack.map((tech) => (
+                    <span key={tech} className="text-xs px-2 py-0.5 rounded-full bg-background border border-border text-muted">
+                      {tech}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Live Service Status */}

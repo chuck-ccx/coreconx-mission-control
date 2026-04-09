@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
 
 const app = express();
 const PORT = 3100;
@@ -155,11 +156,12 @@ app.get('/api/tasks', (req, res) => {
         title
         description
         priority
+        dueDate
         state { id name color type }
         assignee { id name }
         createdAt
         updatedAt
-        project { name }
+        project { id name }
         labels { nodes { name color } }
       }
     }
@@ -643,6 +645,123 @@ app.patch('/api/errors/:id', (req, res) => {
   gog(`sheets update ${ERRORS_SHEET_ID} "${ERRORS_TAB}!A${sheetRow}:H${sheetRow}" --values-json '${JSON.stringify(row)}'`);
 
   res.json({ id, updated: true });
+});
+
+// ==================== Agents ====================
+
+// Helper: parse REGISTRY.md into agent definitions
+function parseRegistry(text) {
+  const lines = text.split('\n').filter(l => l.trim().startsWith('|') && !l.includes('---'));
+  if (lines.length < 2) return [];
+  // skip header row
+  return lines.slice(1).map(line => {
+    const cols = line.split('|').map(c => c.trim()).filter(Boolean);
+    if (cols.length < 5) return null;
+    return {
+      id: cols[0],
+      purpose: cols[1],
+      modelTier: cols[2],
+      registryStatus: cols[3],
+      spawned: cols[4],
+      notes: cols[5] || '',
+    };
+  }).filter(Boolean);
+}
+
+// Helper: map registry + session data into model name
+function resolveModel(modelTier, sessionModel) {
+  if (sessionModel) return sessionModel;
+  if (/T3/i.test(modelTier)) return 'Claude Opus 4';
+  if (/T2/i.test(modelTier)) return 'Claude Haiku';
+  if (/T1/i.test(modelTier)) return 'DeepSeek / Llama';
+  return modelTier || 'Unknown';
+}
+
+app.get('/api/agents', (req, res) => {
+  const agents = [];
+  const now = Date.now();
+
+  // 1. Read REGISTRY.md
+  let registryAgents = [];
+  try {
+    const text = readFileSync(process.env.HOME + '/.openclaw/workspace/agents/REGISTRY.md', 'utf-8');
+    registryAgents = parseRegistry(text);
+  } catch { /* file may not exist */ }
+
+  // 2. Get OpenClaw sessions
+  let sessions = [];
+  try {
+    const raw = execSync('/opt/homebrew/bin/openclaw sessions --json --all-agents', {
+      timeout: 10000,
+      encoding: 'utf-8',
+      env: { ...process.env, PATH: '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin' },
+    });
+    const parsed = JSON.parse(raw);
+    sessions = parsed.sessions || parsed || [];
+  } catch { /* openclaw may not be available */ }
+
+  // 3. Get task counts from Linear (assigned tasks per assignee name)
+  let taskCounts = {};
+  if (process.env.LINEAR_API_KEY) {
+    const result = linearQuery(`{
+      issues(first: 200, filter: { state: { type: { nin: ["completed", "canceled"] } } }) {
+        nodes {
+          assignee { name }
+          labels { nodes { name } }
+        }
+      }
+    }`);
+    if (result?.data?.issues?.nodes) {
+      for (const issue of result.data.issues.nodes) {
+        // Count by assignee name
+        const assigneeName = issue.assignee?.name;
+        if (assigneeName) {
+          taskCounts[assigneeName] = (taskCounts[assigneeName] || 0) + 1;
+        }
+        // Also count "Assigned: Chuck" labels
+        for (const label of (issue.labels?.nodes || [])) {
+          const match = label.name.match(/^Assigned:\s*(.+)/i);
+          if (match) {
+            const name = match[1].trim();
+            taskCounts[name] = (taskCounts[name] || 0) + 1;
+          }
+        }
+      }
+    }
+  }
+
+  // Build the "Chuck" primary agent from session data
+  const mainSession = sessions.find(s => s.agentId === 'main' && s.kind === 'direct');
+  agents.push({
+    id: 'chuck',
+    name: 'Chuck',
+    role: 'COO — Operations & Strategy',
+    model: mainSession?.model || 'Claude Opus 4.6',
+    status: mainSession && (now - mainSession.updatedAt) < 600000 ? 'active' : 'idle',
+    taskCount: taskCounts['Chuck'] || taskCounts['Chuck (AI)'] || 0,
+    lastActive: mainSession ? new Date(mainSession.updatedAt).toISOString() : null,
+    techStack: ['OpenClaw', 'Claude Opus 4', 'Linear', 'Google Workspace', 'GitHub'],
+  });
+
+  // Add agents from REGISTRY.md
+  for (const ra of registryAgents) {
+    const matchedSession = sessions.find(s => s.agentId === ra.id);
+    const isActive = ra.registryStatus?.toLowerCase() === 'active';
+    agents.push({
+      id: ra.id,
+      name: ra.id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      role: ra.purpose,
+      model: resolveModel(ra.modelTier, matchedSession?.model),
+      status: matchedSession && (now - matchedSession.updatedAt) < 600000
+        ? 'active'
+        : isActive ? 'idle' : 'error',
+      taskCount: taskCounts[ra.id] || 0,
+      lastActive: matchedSession ? new Date(matchedSession.updatedAt).toISOString() : ra.spawned || null,
+      techStack: ra.notes ? ra.notes.split(/[.,;]/).map(s => s.trim()).filter(Boolean).slice(0, 5) : [],
+    });
+  }
+
+  res.json(agents);
 });
 
 // ==================== System Status ====================
