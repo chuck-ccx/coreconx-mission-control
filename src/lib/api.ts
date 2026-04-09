@@ -1,5 +1,5 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.ccxmc.ca';
-const API_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN || 'coreconx-mc-2026';
+const API_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN || '';
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T | null> {
   try {

@@ -21,12 +21,12 @@ app.use(cors({
 app.use(express.json());
 
 // Login endpoint — validates credentials from env vars (not behind bearer auth)
-const MC_USERNAME = process.env.MC_USERNAME || 'dylan';
+const MC_USERNAME = process.env.MC_USERNAME; // MUST be set in env — no fallback
 const MC_PASSWORD = process.env.MC_PASSWORD; // MUST be set in env — no fallback
 app.post('/auth/login', (req, res) => {
   const { username, password } = req.body;
-  if (!MC_PASSWORD) {
-    return res.status(500).json({ error: 'Server auth not configured' });
+  if (!MC_USERNAME || !MC_PASSWORD) {
+    return res.status(500).json({ error: 'Server auth not configured — set MC_USERNAME and MC_PASSWORD' });
   }
   if (username === MC_USERNAME && password === MC_PASSWORD) {
     return res.json({ authenticated: true, token: API_TOKEN });
@@ -35,8 +35,11 @@ app.post('/auth/login', (req, res) => {
 });
 
 // Auth middleware — simple bearer token
-const API_TOKEN = process.env.MC_API_TOKEN || 'coreconx-mc-2026';
+const API_TOKEN = process.env.MC_API_TOKEN; // MUST be set in env — no fallback
 app.use('/api', (req, res, next) => {
+  if (!API_TOKEN) {
+    return res.status(500).json({ error: 'Server auth not configured — set MC_API_TOKEN' });
+  }
   const auth = req.headers.authorization;
   if (!auth || auth !== `Bearer ${API_TOKEN}`) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -1135,10 +1138,11 @@ app.post('/api/chat/send', (req, res) => {
 
     // Fire OpenClaw system event so Chuck picks it up
     try {
-      const safeMsg = message.trim().substring(0, 200).replace(/'/g, "\\'").replace(/\n/g, ' ');
-      execSync(`openclaw system event --text 'Secure chat from Dylan: ${safeMsg}' --mode now`, {
+      const safeMsg = message.trim().substring(0, 200).replace(/\n/g, ' ');
+      execSync('openclaw system event --mode now --text "$CHAT_MSG"', {
         timeout: 5000,
-        env: { ...process.env, PATH: `/opt/homebrew/bin:${process.env.PATH}` },
+        shell: '/bin/bash',
+        env: { ...process.env, PATH: `/opt/homebrew/bin:${process.env.PATH}`, CHAT_MSG: `Secure chat from Dylan: ${safeMsg}` },
       });
     } catch (err) {
       console.error(`[chat] OpenClaw notify failed: ${err.message}`);
