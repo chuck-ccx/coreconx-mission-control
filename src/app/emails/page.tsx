@@ -17,6 +17,10 @@ import {
   Clock,
   Edit3,
   ChevronDown,
+  Megaphone,
+  LayoutTemplate,
+  Plus,
+  Copy,
 } from "lucide-react";
 import { Modal } from "@/components/modal";
 import { apiFetch } from "@/lib/api";
@@ -118,6 +122,47 @@ export default function EmailsPage() {
   const [editSubject, setEditSubject] = useState("");
   const [editBody, setEditBody] = useState("");
   const [editFrom, setEditFrom] = useState("chuck@coreconx.group");
+
+  // Top-level tab: pipeline vs campaigns/templates
+  type TopTab = "pipeline" | "campaigns";
+  const [topTab, setTopTab] = useState<TopTab>("pipeline");
+
+  // Alias filter
+  const [aliasFilter, setAliasFilter] = useState<string>("all");
+
+  // Campaigns & Templates
+  type SubTab = "campaigns" | "templates";
+  const [subTab, setSubTab] = useState<SubTab>("campaigns");
+
+  interface Campaign {
+    id: string;
+    name: string;
+    status: "draft" | "active" | "paused" | "completed";
+    sent: number;
+    opened: number;
+    replied: number;
+    templateId?: string;
+  }
+
+  interface Template {
+    id: string;
+    name: string;
+    subject: string;
+    body: string;
+    category: string;
+    usedCount: number;
+  }
+
+  const [campaigns] = useState<Campaign[]>([
+    { id: "1", name: "Q2 Drilling Outreach", status: "draft", sent: 0, opened: 0, replied: 0 },
+    { id: "2", name: "Follow-Up Sequence", status: "draft", sent: 0, opened: 0, replied: 0 },
+  ]);
+
+  const [templates] = useState<Template[]>([
+    { id: "1", name: "Cold Intro", subject: "Streamline your drilling operations", body: "Hi {{name}},\n\nI noticed {{company}} runs diamond drilling operations in {{region}}. We built CoreConX to help drill owners like you track performance, manage shifts, and reduce downtime.\n\nWould you be open to a quick 10-minute call this week?\n\nBest,\nDylan", category: "Outreach", usedCount: 0 },
+    { id: "2", name: "Follow-Up #1", subject: "Quick follow-up — CoreConX", body: "Hi {{name}},\n\nJust wanted to follow up on my last email. I know things get busy on the rig.\n\nCoreConX is already being used by drilling crews to cut reporting time in half. Happy to show you a quick demo whenever works.\n\nCheers,\nDylan", category: "Follow-Up", usedCount: 0 },
+    { id: "3", name: "Support Reply", subject: "Re: {{original_subject}}", body: "Hi {{name}},\n\nThanks for reaching out. {{response}}\n\nLet me know if you have any other questions.\n\nBest,\nChuck\nCoreConX Support", category: "Support", usedCount: 0 },
+  ]);
 
   // --- Fetchers ---
 
@@ -259,17 +304,29 @@ export default function EmailsPage() {
   };
 
   // Split drafts into "drafts" (being written) and "review" (ready for approval)
-  // For now, all Gmail drafts go to Review since agents create them ready to send
-  // The "Drafts" column is for in-progress work (future: local state before saving to Gmail)
   const reviewDrafts = drafts;
-  const inProgressDrafts: Draft[] = []; // Future: local drafts being edited
+  const inProgressDrafts: Draft[] = [];
+
+  // --- Alias filtering ---
+  const filterByAlias = <T extends { from?: string; to?: string }>(items: T[]): T[] => {
+    if (aliasFilter === "all") return items;
+    return items.filter(
+      (item) =>
+        item.to?.toLowerCase().includes(aliasFilter.toLowerCase()) ||
+        item.from?.toLowerCase().includes(aliasFilter.toLowerCase())
+    );
+  };
+
+  const filteredInbox = filterByAlias(inboxEmails);
+  const filteredReview = filterByAlias(reviewDrafts);
+  const filteredSent = filterByAlias(sentEmails);
 
   // --- Counts ---
   const counts: Record<ColumnId, number> = {
-    inbox: inboxEmails.length,
+    inbox: filteredInbox.length,
     drafts: inProgressDrafts.length,
-    review: reviewDrafts.length,
-    sent: sentEmails.length,
+    review: filteredReview.length,
+    sent: filteredSent.length,
   };
 
   // --- Mobile column selector ---
@@ -285,72 +342,158 @@ export default function EmailsPage() {
             Email Hub
           </h1>
           <p className="text-muted text-xs sm:text-sm mt-1">
-            Response pipeline — Inbox → Draft → Review → Sent
+            Response pipeline, campaigns &amp; templates
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          {topTab === "pipeline" && (
+            <button
+              onClick={refreshAll}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-foreground rounded-lg text-sm hover:bg-card-hover transition-colors"
+            >
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+              Refresh
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Top-level tabs: Pipeline | Campaigns & Templates */}
+      <div className="flex gap-1 bg-card border border-border rounded-xl p-1">
         <button
-          onClick={refreshAll}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-foreground rounded-lg text-sm hover:bg-card-hover transition-colors"
+          onClick={() => setTopTab("pipeline")}
+          className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            topTab === "pipeline"
+              ? "bg-coreconx text-white"
+              : "text-muted hover:text-foreground"
+          }`}
         >
-          <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
-          Refresh
+          <Inbox size={14} />
+          Pipeline
+        </button>
+        <button
+          onClick={() => setTopTab("campaigns")}
+          className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            topTab === "campaigns"
+              ? "bg-coreconx text-white"
+              : "text-muted hover:text-foreground"
+          }`}
+        >
+          <Megaphone size={14} />
+          Campaigns &amp; Templates
         </button>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {columnConfig.map((col) => {
-          const Icon = col.icon;
-          const loading = col.id === "inbox" ? loadingInbox : col.id === "drafts" ? loadingDrafts : col.id === "review" ? loadingDrafts : loadingSent;
-          return (
+      {/* ===== PIPELINE TAB ===== */}
+      {topTab === "pipeline" && (
+        <>
+          {/* Alias filter bar */}
+          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
             <button
-              key={col.id}
-              onClick={() => setActiveColumn(col.id)}
-              className={`bg-card border rounded-xl p-3 sm:p-4 text-left transition-colors ${
-                activeColumn === col.id ? "border-coreconx/50 bg-coreconx/5" : "border-border hover:border-border/80"
+              onClick={() => setAliasFilter("all")}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                aliasFilter === "all"
+                  ? "bg-coreconx text-white"
+                  : "bg-card border border-border text-muted hover:text-foreground hover:border-border/80"
               }`}
             >
-              <div className="flex items-center gap-2">
-                <Icon size={14} className={col.color} />
-                <span className="text-xs text-muted">{col.label}</span>
-              </div>
-              <p className="text-xl sm:text-2xl font-semibold text-foreground mt-1">
-                {loading ? "..." : counts[col.id]}
-              </p>
-              <p className="text-xs text-muted mt-0.5 hidden sm:block">{col.description}</p>
+              All
             </button>
-          );
-        })}
-      </div>
+            {aliases.map((alias) => {
+              const shortName = alias.split("@")[0];
+              return (
+                <button
+                  key={alias}
+                  onClick={() => setAliasFilter(aliasFilter === alias ? "all" : alias)}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    aliasFilter === alias
+                      ? "bg-coreconx text-white"
+                      : "bg-card border border-border text-muted hover:text-foreground hover:border-border/80"
+                  }`}
+                >
+                  {shortName}@
+                </button>
+              );
+            })}
+          </div>
 
-      {/* Mobile column selector */}
-      <div className="flex gap-1 bg-card border border-border rounded-xl p-1 sm:hidden">
-        {columnConfig.map((col) => (
-          <button
-            key={col.id}
-            onClick={() => setActiveColumn(col.id)}
-            className={`flex-1 px-2 py-2 rounded-lg text-xs font-medium transition-colors ${
-              activeColumn === col.id
-                ? "bg-coreconx text-white"
-                : "text-muted hover:text-foreground"
-            }`}
-          >
-            {col.label} ({counts[col.id]})
-          </button>
-        ))}
-      </div>
+          {/* Stats row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {columnConfig.map((col) => {
+              const Icon = col.icon;
+              const loading = col.id === "inbox" ? loadingInbox : col.id === "drafts" ? loadingDrafts : col.id === "review" ? loadingDrafts : loadingSent;
+              return (
+                <button
+                  key={col.id}
+                  onClick={() => setActiveColumn(col.id)}
+                  className={`bg-card border rounded-xl p-3 sm:p-4 text-left transition-colors ${
+                    activeColumn === col.id ? "border-coreconx/50 bg-coreconx/5" : "border-border hover:border-border/80"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon size={14} className={col.color} />
+                    <span className="text-xs text-muted">{col.label}</span>
+                  </div>
+                  <p className="text-xl sm:text-2xl font-semibold text-foreground mt-1">
+                    {loading ? "..." : counts[col.id]}
+                  </p>
+                  <p className="text-xs text-muted mt-0.5 hidden sm:block">{col.description}</p>
+                </button>
+              );
+            })}
+          </div>
 
-      {/* Kanban Board — desktop: 4 cols, mobile: single column via selector */}
-      <div className="hidden sm:grid sm:grid-cols-4 gap-4">
-        {columnConfig.map((col) => (
-          <KanbanColumn key={col.id} col={col} counts={counts}>
+          {/* Mobile column selector */}
+          <div className="flex gap-1 bg-card border border-border rounded-xl p-1 sm:hidden">
+            {columnConfig.map((col) => (
+              <button
+                key={col.id}
+                onClick={() => setActiveColumn(col.id)}
+                className={`flex-1 px-2 py-2 rounded-lg text-xs font-medium transition-colors ${
+                  activeColumn === col.id
+                    ? "bg-coreconx text-white"
+                    : "text-muted hover:text-foreground"
+                }`}
+              >
+                {col.label} ({counts[col.id]})
+              </button>
+            ))}
+          </div>
+
+          {/* Kanban Board — desktop: 4 cols, mobile: single column via selector */}
+          <div className="hidden sm:grid sm:grid-cols-4 gap-4">
+            {columnConfig.map((col) => (
+              <KanbanColumn key={col.id} col={col} counts={counts}>
+                <ColumnContent
+                  colId={col.id}
+                  inboxEmails={filteredInbox}
+                  inProgressDrafts={inProgressDrafts}
+                  reviewDrafts={filteredReview}
+                  sentEmails={filteredSent}
+                  loadingInbox={loadingInbox}
+                  loadingDrafts={loadingDrafts}
+                  loadingSent={loadingSent}
+                  actionLoading={actionLoading}
+                  draftActionLoading={draftActionLoading}
+                  onOpenThread={openThread}
+                  onEmailAction={emailAction}
+                  onApproveDraft={approveDraft}
+                  onDeleteDraft={deleteDraft}
+                  onEditDraft={openEditDraft}
+                />
+              </KanbanColumn>
+            ))}
+          </div>
+
+          {/* Mobile: single column view */}
+          <div className="sm:hidden">
             <ColumnContent
-              colId={col.id}
-              inboxEmails={inboxEmails}
+              colId={activeColumn}
+              inboxEmails={filteredInbox}
               inProgressDrafts={inProgressDrafts}
-              reviewDrafts={reviewDrafts}
-              sentEmails={sentEmails}
+              reviewDrafts={filteredReview}
+              sentEmails={filteredSent}
               loadingInbox={loadingInbox}
               loadingDrafts={loadingDrafts}
               loadingSent={loadingSent}
@@ -362,30 +505,148 @@ export default function EmailsPage() {
               onDeleteDraft={deleteDraft}
               onEditDraft={openEditDraft}
             />
-          </KanbanColumn>
-        ))}
-      </div>
+          </div>
+        </>
+      )}
 
-      {/* Mobile: single column view */}
-      <div className="sm:hidden">
-        <ColumnContent
-          colId={activeColumn}
-          inboxEmails={inboxEmails}
-          inProgressDrafts={inProgressDrafts}
-          reviewDrafts={reviewDrafts}
-          sentEmails={sentEmails}
-          loadingInbox={loadingInbox}
-          loadingDrafts={loadingDrafts}
-          loadingSent={loadingSent}
-          actionLoading={actionLoading}
-          draftActionLoading={draftActionLoading}
-          onOpenThread={openThread}
-          onEmailAction={emailAction}
-          onApproveDraft={approveDraft}
-          onDeleteDraft={deleteDraft}
-          onEditDraft={openEditDraft}
-        />
-      </div>
+      {/* ===== CAMPAIGNS & TEMPLATES TAB ===== */}
+      {topTab === "campaigns" && (
+        <>
+          {/* Sub-tabs */}
+          <div className="flex gap-1 bg-card border border-border rounded-xl p-1 max-w-xs">
+            <button
+              onClick={() => setSubTab("campaigns")}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                subTab === "campaigns"
+                  ? "bg-coreconx text-white"
+                  : "text-muted hover:text-foreground"
+              }`}
+            >
+              <Megaphone size={13} />
+              Campaigns
+            </button>
+            <button
+              onClick={() => setSubTab("templates")}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                subTab === "templates"
+                  ? "bg-coreconx text-white"
+                  : "text-muted hover:text-foreground"
+              }`}
+            >
+              <LayoutTemplate size={13} />
+              Templates
+            </button>
+          </div>
+
+          {/* Campaigns list */}
+          {subTab === "campaigns" && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted">Email sequences for outreach &amp; follow-ups</p>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-coreconx text-white text-xs font-medium hover:bg-coreconx/90 transition-colors">
+                  <Plus size={12} />
+                  New Campaign
+                </button>
+              </div>
+              {campaigns.length === 0 ? (
+                <div className="bg-card border border-border rounded-xl p-8 text-center">
+                  <Megaphone size={32} className="mx-auto text-muted/30" />
+                  <p className="text-sm text-muted mt-3">No campaigns yet</p>
+                  <p className="text-xs text-muted/60 mt-1">Create your first outreach sequence</p>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {campaigns.map((c) => (
+                    <div key={c.id} className="bg-card border border-border rounded-xl p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-sm font-semibold text-foreground">{c.name}</h3>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium mt-1 inline-block ${
+                            c.status === "active" ? "bg-success/20 text-success" :
+                            c.status === "paused" ? "bg-warning/20 text-warning" :
+                            c.status === "completed" ? "bg-info/20 text-info" :
+                            "bg-card-hover text-muted"
+                          }`}>
+                            {c.status.charAt(0).toUpperCase() + c.status.slice(1)}
+                          </span>
+                        </div>
+                        <button className="px-3 py-1.5 text-xs text-muted hover:text-foreground border border-border rounded-lg hover:bg-card-hover transition-colors">
+                          Edit
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-border/50">
+                        <div>
+                          <p className="text-lg font-semibold text-foreground">{c.sent}</p>
+                          <p className="text-[10px] text-muted">Sent</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-semibold text-foreground">{c.opened}</p>
+                          <p className="text-[10px] text-muted">Opened</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-semibold text-foreground">{c.replied}</p>
+                          <p className="text-[10px] text-muted">Replied</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Templates list */}
+          {subTab === "templates" && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted">Reusable email templates for agents &amp; manual replies</p>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-coreconx text-white text-xs font-medium hover:bg-coreconx/90 transition-colors">
+                  <Plus size={12} />
+                  New Template
+                </button>
+              </div>
+              {templates.length === 0 ? (
+                <div className="bg-card border border-border rounded-xl p-8 text-center">
+                  <LayoutTemplate size={32} className="mx-auto text-muted/30" />
+                  <p className="text-sm text-muted mt-3">No templates yet</p>
+                  <p className="text-xs text-muted/60 mt-1">Create templates for common responses</p>
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {templates.map((t) => (
+                    <div key={t.id} className="bg-card border border-border rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <h3 className="text-sm font-semibold text-foreground">{t.name}</h3>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-card-hover text-muted font-medium">
+                            {t.category}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-card-hover transition-colors" title="Duplicate">
+                            <Copy size={12} />
+                          </button>
+                          <button className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-card-hover transition-colors" title="Edit">
+                            <Edit3 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted font-medium">Subject: {t.subject}</p>
+                      <p className="text-xs text-muted/60 mt-1 line-clamp-3">{t.body}</p>
+                      <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/50">
+                        <span className="text-[10px] text-muted">Used {t.usedCount} times</span>
+                        <button className="text-[10px] text-coreconx-light hover:text-coreconx transition-colors font-medium">
+                          Use in Draft
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
 
       {/* Thread Detail Modal */}
       <Modal

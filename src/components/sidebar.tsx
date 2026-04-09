@@ -10,7 +10,6 @@ import {
   CheckSquare,
   Bot,
   Calendar,
-  MessageSquare,
   Shield,
   AlertTriangle,
   FileText,
@@ -30,7 +29,6 @@ const navItems = [
   { href: "/legal", label: "Legal Docs", icon: FileText },
   { href: "/agents", label: "Agents", icon: Bot },
   { href: "/calendar", label: "Calendar", icon: Calendar },
-  { href: "/community", label: "Community", icon: MessageSquare },
   { href: "/chat", label: "Secure Chat", icon: Shield },
   { href: "/errors", label: "Errors", icon: AlertTriangle },
 ];
