@@ -40,7 +40,8 @@ export default function RootLayout({
     >
       <head>
         <meta name="theme-color" content="#083820" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png" />
       </head>
       <body className="min-h-full flex">
         <ServiceWorkerRegister />
