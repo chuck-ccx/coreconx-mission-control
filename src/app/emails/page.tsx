@@ -1,13 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Mail,
   Send,
   Inbox,
   FileText,
-  ExternalLink,
-  ArrowRight,
   Loader2,
   RefreshCw,
   Eye,
@@ -16,19 +14,14 @@ import {
   Trash2,
   CheckCheck,
   Reply,
+  Clock,
+  Edit3,
+  ChevronDown,
 } from "lucide-react";
 import { Modal } from "@/components/modal";
 import { apiFetch } from "@/lib/api";
 
-interface CampaignEmail {
-  id: number;
-  name: string;
-  subject: string;
-  day: string;
-  status: string;
-  description: string;
-  body: string;
-}
+// --- Types ---
 
 interface GmailThread {
   id?: string;
@@ -54,95 +47,15 @@ interface GmailThreadDetail {
   }>;
 }
 
-interface GmailSentResponse {
-  threads?: GmailThread[];
-  nextPageToken?: string;
-}
-
-const campaignEmails: CampaignEmail[] = [
-  {
-    id: 1,
-    name: "The Honest Ask",
-    subject: "Building something for drillers — could use your eyes on it",
-    day: "Day 1",
-    status: "Draft",
-    description:
-      "Opens with flaws, admits it's rough, asks for help not a sale. Buffett method — lead with negatives.",
-    body: `Hey [Name],
-
-I'm Dylan — I work as a helper at Hardrock Diamond Drilling. I've been trying to build an app for diamond drillers on the side and I'll be honest, it's rough around the edges. The UI needs work, there are features missing, and I'm figuring it out as I go.
-
-But the core works — tracking driller performance, shifts, and project data without spreadsheets or paper. I built it because nothing out there is made for what we actually do.
-
-I'm not looking for customers right now. I'm looking for a few drillers willing to beat it up and tell me what's broken. No cost, no contract. If it's useful, all I'd ask is an honest testimonial down the road. If it's not useful, tell me that too — that's just as valuable.
-
-Would you be open to taking a look?
-
-Dylan`,
-  },
-  {
-    id: 2,
-    name: "The Gentle Follow-Up",
-    subject: "No worries if not — just following up",
-    day: "Day 5-7",
-    status: "Draft",
-    description:
-      "Respects their time, 'I know what 12-hour days look like,' easy out.",
-    body: `Hey [Name],
-
-Just following up — totally get it if you're slammed. I know what 12-hour days on a drill look like.
-
-Quick context if my last email got buried: I'm a helper at Hardrock building an app to track driller performance and shifts. No customers yet, no testimonials, no polished marketing page. Just a working tool that needs real drillers to test it.
-
-It's free. The only thing I'd ask for is honest feedback — and if it actually helps, a testimonial down the road.
-
-If the timing's wrong, no stress at all. Door's open whenever.
-
-Dylan`,
-  },
-  {
-    id: 3,
-    name: "The Last Door",
-    subject: "Last one from me — door's always open",
-    day: "Day 12-14",
-    status: "Draft",
-    description:
-      "Honest scarcity (10 companies), referral ask, graceful close. No follow-up after this.",
-    body: `Hey [Name],
-
-Last email from me — I promise.
-
-I'm looking for 10 diamond drilling companies to test an app I built for tracking driller performance and shifts. I can only support 10 right now because it's just me, and I want to give each company real attention.
-
-The deal is simple: free access to the app, your honest feedback shapes what gets built, and if it works for you, a testimonial I can use.
-
-If this isn't for you, totally respect that. If you know someone who might be interested, I'd appreciate the intro.
-
-Either way, thanks for reading. Door's always open.
-
-Dylan
-
-Reply STOP to unsubscribe.`,
-  },
-];
-
-interface SheetTemplate {
-  name: string;
+interface Draft {
+  id: string;
+  to: string;
   subject: string;
-  bodyPreview: string;
-  variationA: string;
-  variationB: string;
-  variables: string;
-  notes: string;
+  body: string;
+  from?: string;
 }
 
-interface TemplateCategory {
-  name: string;
-  count?: number;
-  icon: string;
-  sheetUrl: string;
-  templates: SheetTemplate[];
-}
+type ColumnId = "inbox" | "drafts" | "review" | "sent";
 
 const aliases = [
   "chuck@coreconx.group",
@@ -157,62 +70,40 @@ const aliases = [
   "sedarplus@coreconx.group",
 ];
 
-const tabs = ["Campaign", "Templates", "Inbox", "Sent", "Legal Docs"] as const;
-type Tab = typeof tabs[number];
-
-const legalDocs = [
-  { phase: "Phase 1 — MVP Launch", docs: [
-    { name: "Terms of Service", url: "https://docs.google.com/document/d/1k8123ZrJiTJhrrnYHtltx5ZJmbrDPz-NEtJHyVKtu2A/edit" },
-    { name: "Privacy Policy", url: "https://docs.google.com/document/d/1e4Y9yMl8QTsX1W8k3cQ6qcUWuNkVBYNeAoUc8hDskSM/edit" },
-    { name: "Acceptable Use Policy", url: "https://docs.google.com/document/d/10aUm-xY3tmYVE6nr002sEWTiTjoj25AKvZAN2HLsI00/edit" },
-    { name: "Cookie Policy", url: "https://docs.google.com/document/d/1jUpikcRCTqdLIiamXr7xrBnxDfyIWyfVbXdzvjKBpZY/edit" },
-    { name: "Getting Started Guide", url: "https://docs.google.com/document/d/1ehRkppftE-L53QiVqNTeBL9pXZP2gHqlcFKK73vFSdc/edit" },
-  ]},
-  { phase: "Phase 2 — Paid Plans & Data", docs: [
-    { name: "Subscription Agreement", url: "" },
-    { name: "Data Processing Agreement (DPA)", url: "" },
-    { name: "Service Level Agreement (SLA)", url: "" },
-    { name: "Refund & Cancellation Policy", url: "" },
-    { name: "End User License Agreement (EULA)", url: "" },
-  ]},
-  { phase: "Phase 3 — Marketplace (DRAFT)", docs: [
-    { name: "Marketplace Terms", url: "" },
-    { name: "Independent Contractor Agreement", url: "" },
-    { name: "Commission & Fee Schedule", url: "" },
-    { name: "Dispute Resolution Policy", url: "" },
-    { name: "Insurance & Liability Requirements", url: "" },
-    { name: "NDA Template", url: "" },
-  ]},
-  { phase: "General Legal", docs: [
-    { name: "CASL Compliance Policy", url: "https://docs.google.com/document/d/1hxNOjpdPFZ9WK7eb1Ht32yOc8_GqXVTSTOOY0xaLOPQ/edit" },
-    { name: "PIPEDA Compliance Policy", url: "https://docs.google.com/document/d/1yX1T1TMrsxFPhcAVzkerL48hGhHVNHjm3oPCbUIIbLo/edit" },
-    { name: "IP Assignment Agreement", url: "https://docs.google.com/document/d/1CvJaeAZP6ihCxAgM2Ow01GdhYdLlkU-bFdd0PRq37vI/edit" },
-    { name: "Employee & Contractor Agreement", url: "https://docs.google.com/document/d/1BklnEoyttFVzfIgJPgKlggWwitV1-ZYh-Lwa8JbExq0/edit" },
-    { name: "Insurance Requirements (Internal)", url: "https://docs.google.com/document/d/1gM0MKa_LKJc2sVknxODg_X6p5zG5YveRBXnlOBOZLFw/edit" },
-  ]},
+const columnConfig: {
+  id: ColumnId;
+  label: string;
+  icon: typeof Inbox;
+  color: string;
+  description: string;
+}[] = [
+  { id: "inbox", label: "Inbox", icon: Inbox, color: "text-info", description: "Needs reply" },
+  { id: "drafts", label: "Drafts", icon: Edit3, color: "text-warning", description: "Being written" },
+  { id: "review", label: "Review", icon: Clock, color: "text-coreconx-light", description: "Approve to send" },
+  { id: "sent", label: "Sent", icon: Send, color: "text-success", description: "Delivered" },
 ];
 
 export default function EmailsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("Campaign");
-  const [selectedEmail, setSelectedEmail] = useState<CampaignEmail | null>(null);
-  const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
-  const [sentEmails, setSentEmails] = useState<GmailThread[]>([]);
+  // Data
   const [inboxEmails, setInboxEmails] = useState<GmailThread[]>([]);
-  const [templateCategories, setTemplateCategories] = useState<TemplateCategory[]>([]);
-  const [loadingSent, setLoadingSent] = useState(false);
-  const [loadingInbox, setLoadingInbox] = useState(false);
-  const [loadingTemplates, setLoadingTemplates] = useState(false);
-  const [sentAliasFilter, setSentAliasFilter] = useState<string>("all");
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [sentEmails, setSentEmails] = useState<GmailThread[]>([]);
+
+  // Loading
+  const [loadingInbox, setLoadingInbox] = useState(true);
+  const [loadingDrafts, setLoadingDrafts] = useState(true);
+  const [loadingSent, setLoadingSent] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Actions
+  const [actionLoading, setActionLoading] = useState<Record<string, string>>({});
+  const [draftActionLoading, setDraftActionLoading] = useState<Record<string, string>>({});
+
+  // Thread detail
   const [selectedThread, setSelectedThread] = useState<GmailThreadDetail | null>(null);
   const [loadingThread, setLoadingThread] = useState(false);
-  const [refreshingSent, setRefreshingSent] = useState(false);
-  const [refreshingInbox, setRefreshingInbox] = useState(false);
-  const [actionLoading, setActionLoading] = useState<Record<string, string>>({});
-  const [inboxAliasFilter, setInboxAliasFilter] = useState<string>("all");
-  const [drafts, setDrafts] = useState<Array<{ id: string; to: string; subject: string; body: string; from?: string }>>([]);
-  const [loadingDrafts, setLoadingDrafts] = useState(false);
-  const [draftActionLoading, setDraftActionLoading] = useState<Record<string, string>>({});
+
+  // Reply form
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyTo, setReplyTo] = useState("");
   const [replySubject, setReplySubject] = useState("");
@@ -220,34 +111,102 @@ export default function EmailsPage() {
   const [replyFrom, setReplyFrom] = useState("chuck@coreconx.group");
   const [replyMessageId, setReplyMessageId] = useState<string | undefined>();
   const [savingDraft, setSavingDraft] = useState(false);
-  const [sendModalOpen, setSendModalOpen] = useState(false);
-  const [sendTo, setSendTo] = useState("");
-  const [sendSubject, setSendSubject] = useState("");
-  const [sendBody, setSendBody] = useState("");
-  const [sendFrom, setSendFrom] = useState("chuck@coreconx.group");
-  const [sending, setSending] = useState(false);
-  const [sendResult, setSendResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  const fetchDrafts = async () => {
+  // Edit draft
+  const [editingDraft, setEditingDraft] = useState<Draft | null>(null);
+  const [editTo, setEditTo] = useState("");
+  const [editSubject, setEditSubject] = useState("");
+  const [editBody, setEditBody] = useState("");
+  const [editFrom, setEditFrom] = useState("chuck@coreconx.group");
+
+  // --- Fetchers ---
+
+  const fetchInbox = useCallback(async () => {
+    setLoadingInbox(true);
+    const data = await apiFetch<{ threads?: GmailThread[] }>("/api/emails/inbox");
+    if (data?.threads && Array.isArray(data.threads)) setInboxEmails(data.threads);
+    else if (data && Array.isArray(data)) setInboxEmails(data as unknown as GmailThread[]);
+    setLoadingInbox(false);
+  }, []);
+
+  const fetchDrafts = useCallback(async () => {
     setLoadingDrafts(true);
-    const data = await apiFetch<{ drafts?: Array<{ id: string; to: string; subject: string; body: string; from?: string }> }>("/api/emails/drafts");
+    const data = await apiFetch<{ drafts?: Draft[] }>("/api/emails/drafts");
     if (data?.drafts && Array.isArray(data.drafts)) setDrafts(data.drafts);
-    else if (data && Array.isArray(data)) setDrafts(data as unknown as typeof drafts);
+    else if (data && Array.isArray(data)) setDrafts(data as unknown as Draft[]);
     setLoadingDrafts(false);
+  }, []);
+
+  const fetchSent = useCallback(async () => {
+    setLoadingSent(true);
+    const data = await apiFetch<{ threads?: GmailThread[] }>("/api/emails/sent");
+    if (data?.threads && Array.isArray(data.threads)) setSentEmails(data.threads);
+    else if (data && Array.isArray(data)) setSentEmails(data as unknown as GmailThread[]);
+    setLoadingSent(false);
+  }, []);
+
+  const refreshAll = async () => {
+    setRefreshing(true);
+    await Promise.all([fetchInbox(), fetchDrafts(), fetchSent()]);
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    fetchInbox();
+    fetchDrafts();
+    fetchSent();
+  }, [fetchInbox, fetchDrafts, fetchSent]);
+
+  // --- Actions ---
+
+  const openThread = async (threadId: string) => {
+    setLoadingThread(true);
+    setSelectedThread(null);
+    const data = await apiFetch<GmailThreadDetail>(`/api/emails/thread/${threadId}`);
+    if (data) setSelectedThread(data);
+    setLoadingThread(false);
+  };
+
+  const emailAction = async (messageId: string, action: "archive" | "mark-read" | "trash") => {
+    setActionLoading((prev) => ({ ...prev, [messageId]: action }));
+    await apiFetch(`/api/emails/${action}/${messageId}`, { method: "POST" });
+    setInboxEmails((prev) => prev.filter((e) => e.id !== messageId));
+    setActionLoading((prev) => {
+      const next = { ...prev };
+      delete next[messageId];
+      return next;
+    });
   };
 
   const approveDraft = async (draftId: string) => {
     setDraftActionLoading((prev) => ({ ...prev, [draftId]: "approve" }));
     await apiFetch(`/api/emails/draft/${draftId}/send`, { method: "POST" });
     setDrafts((prev) => prev.filter((d) => d.id !== draftId));
-    setDraftActionLoading((prev) => { const next = { ...prev }; delete next[draftId]; return next; });
+    setDraftActionLoading((prev) => {
+      const next = { ...prev };
+      delete next[draftId];
+      return next;
+    });
+    await fetchSent();
   };
 
   const deleteDraft = async (draftId: string) => {
     setDraftActionLoading((prev) => ({ ...prev, [draftId]: "delete" }));
     await apiFetch(`/api/emails/draft/${draftId}`, { method: "DELETE" });
     setDrafts((prev) => prev.filter((d) => d.id !== draftId));
-    setDraftActionLoading((prev) => { const next = { ...prev }; delete next[draftId]; return next; });
+    setDraftActionLoading((prev) => {
+      const next = { ...prev };
+      delete next[draftId];
+      return next;
+    });
+  };
+
+  const openReplyForm = (msg: { from?: string; subject?: string; id?: string }) => {
+    setReplyTo(msg.from || "");
+    setReplySubject(msg.subject?.startsWith("Re:") ? msg.subject : `Re: ${msg.subject || ""}`);
+    setReplyBody("");
+    setReplyMessageId(msg.id);
+    setShowReplyForm(true);
   };
 
   const saveDraftReply = async () => {
@@ -272,108 +231,53 @@ export default function EmailsPage() {
     await fetchDrafts();
   };
 
-  const openReplyForm = (msg: { from?: string; subject?: string; id?: string }) => {
-    setReplyTo(msg.from || "");
-    setReplySubject(msg.subject?.startsWith("Re:") ? msg.subject : `Re: ${msg.subject || ""}`);
-    setReplyBody("");
-    setReplyMessageId(msg.id);
-    setShowReplyForm(true);
+  const openEditDraft = (draft: Draft) => {
+    setEditingDraft(draft);
+    setEditTo(draft.to);
+    setEditSubject(draft.subject);
+    setEditBody(draft.body);
+    setEditFrom(draft.from || "chuck@coreconx.group");
   };
 
-  const openSendModal = (subject: string, body: string) => {
-    setSendTo("");
-    setSendSubject(subject);
-    setSendBody(body);
-    setSendFrom("chuck@coreconx.group");
-    setSendResult(null);
-    setSendModalOpen(true);
-  };
-
-  const sendEmail = async () => {
-    if (!sendTo || !sendSubject || !sendBody) return;
-    setSending(true);
-    setSendResult(null);
-    const result = await apiFetch<{ success?: boolean; messageId?: string }>("/api/emails/send", {
+  const saveEditedDraft = async () => {
+    if (!editingDraft || !editTo || !editSubject || !editBody) return;
+    setSavingDraft(true);
+    // Delete old draft and create new one with updated content
+    await apiFetch(`/api/emails/draft/${editingDraft.id}`, { method: "DELETE" });
+    await apiFetch("/api/emails/draft", {
       method: "POST",
       body: JSON.stringify({
-        to: sendTo,
-        subject: sendSubject,
-        body: sendBody,
-        from: sendFrom,
+        to: editTo,
+        subject: editSubject,
+        body: editBody,
+        from: editFrom,
       }),
     });
-    setSending(false);
-    if (result) {
-      setSendResult({ type: "success", message: "Email sent successfully!" });
-      setTimeout(() => {
-        setSendModalOpen(false);
-        setSendResult(null);
-      }, 1500);
-    } else {
-      setSendResult({ type: "error", message: "Failed to send email. Please try again." });
-    }
+    setSavingDraft(false);
+    setEditingDraft(null);
+    await fetchDrafts();
   };
 
-  const emailAction = async (messageId: string, action: "archive" | "mark-read" | "trash") => {
-    setActionLoading((prev) => ({ ...prev, [messageId]: action }));
-    await apiFetch(`/api/emails/${action}/${messageId}`, { method: "POST" });
-    setInboxEmails((prev) => prev.filter((e) => e.id !== messageId));
-    setActionLoading((prev) => {
-      const next = { ...prev };
-      delete next[messageId];
-      return next;
-    });
+  // Split drafts into "drafts" (being written) and "review" (ready for approval)
+  // For now, all Gmail drafts go to Review since agents create them ready to send
+  // The "Drafts" column is for in-progress work (future: local state before saving to Gmail)
+  const reviewDrafts = drafts;
+  const inProgressDrafts: Draft[] = []; // Future: local drafts being edited
+
+  // --- Counts ---
+  const counts: Record<ColumnId, number> = {
+    inbox: inboxEmails.length,
+    drafts: inProgressDrafts.length,
+    review: reviewDrafts.length,
+    sent: sentEmails.length,
   };
 
-  const refreshInbox = async () => {
-    setRefreshingInbox(true);
-    await fetchInbox();
-    setRefreshingInbox(false);
-  };
-
-  const fetchSent = async () => {
-    setLoadingSent(true);
-    const data = await apiFetch<GmailSentResponse>("/api/emails/sent");
-    if (data?.threads && Array.isArray(data.threads)) setSentEmails(data.threads);
-    else if (data && Array.isArray(data)) setSentEmails(data as unknown as GmailThread[]);
-    setLoadingSent(false);
-  };
-
-  const fetchInbox = async () => {
-    setLoadingInbox(true);
-    const data = await apiFetch<GmailSentResponse>("/api/emails/inbox");
-    if (data?.threads && Array.isArray(data.threads)) setInboxEmails(data.threads);
-    else if (data && Array.isArray(data)) setInboxEmails(data as unknown as GmailThread[]);
-    setLoadingInbox(false);
-  };
-
-  const refreshSent = async () => {
-    setRefreshingSent(true);
-    await fetchSent();
-    setRefreshingSent(false);
-  };
-
-  const openThread = async (threadId: string) => {
-    setLoadingThread(true);
-    setSelectedThread(null);
-    const data = await apiFetch<GmailThreadDetail>(`/api/emails/thread/${threadId}`);
-    if (data) setSelectedThread(data);
-    setLoadingThread(false);
-  };
-
-  useEffect(() => {
-    fetchSent();
-    fetchInbox();
-    fetchDrafts();
-    setLoadingTemplates(true);
-    apiFetch<TemplateCategory[]>("/api/templates").then((data) => {
-      if (data && Array.isArray(data)) setTemplateCategories(data);
-      setLoadingTemplates(false);
-    });
-  }, []);
+  // --- Mobile column selector ---
+  const [activeColumn, setActiveColumn] = useState<ColumnId>("inbox");
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-4">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
@@ -381,562 +285,116 @@ export default function EmailsPage() {
             Email Hub
           </h1>
           <p className="text-muted text-xs sm:text-sm mt-1">
-            Campaigns, templates, sent emails, and legal documents
+            Response pipeline — Inbox → Draft → Review → Sent
           </p>
         </div>
-        <div className="flex gap-3 shrink-0">
-          <a
-            href="https://docs.google.com/spreadsheets/d/1arbZpTV9DSVS8w-4FA8XhV59x_DWxpGIP1dI5vxX3ak/edit"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-card border border-border text-foreground rounded-lg text-sm hover:bg-card-hover transition-colors"
-          >
-            <ExternalLink size={14} />
-            CRM Sheet
-          </a>
-        </div>
+        <button
+          onClick={refreshAll}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-foreground rounded-lg text-sm hover:bg-card-hover transition-colors"
+        >
+          <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+          Refresh
+        </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        {[
-          {
-            label: "Emails Sent",
-            value: loadingSent ? "..." : String(sentEmails.length),
-            icon: <Send size={16} />,
-            sub: sentEmails.length === 0 ? "No emails sent yet" : "From Gmail",
-          },
-          {
-            label: "Inbox (Unread)",
-            value: loadingInbox ? "..." : String(inboxEmails.length),
-            icon: <Inbox size={16} />,
-            sub: "Monitoring 10 aliases",
-          },
-          {
-            label: "Templates",
-            value: loadingTemplates ? "..." : String(templateCategories.reduce((sum, c) => sum + (c.count || c.templates.length), 0)),
-            icon: <FileText size={16} />,
-            sub: loadingTemplates ? "Loading..." : `${templateCategories.length} categories`,
-          },
-          {
-            label: "Domain Auth",
-            value: "3/3",
-            icon: <Mail size={16} />,
-            sub: "SPF + DKIM + DMARC",
-          },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="bg-card border border-border rounded-xl p-4"
+      {/* Stats row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {columnConfig.map((col) => {
+          const Icon = col.icon;
+          const loading = col.id === "inbox" ? loadingInbox : col.id === "drafts" ? loadingDrafts : col.id === "review" ? loadingDrafts : loadingSent;
+          return (
+            <button
+              key={col.id}
+              onClick={() => setActiveColumn(col.id)}
+              className={`bg-card border rounded-xl p-3 sm:p-4 text-left transition-colors ${
+                activeColumn === col.id ? "border-coreconx/50 bg-coreconx/5" : "border-border hover:border-border/80"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Icon size={14} className={col.color} />
+                <span className="text-xs text-muted">{col.label}</span>
+              </div>
+              <p className="text-xl sm:text-2xl font-semibold text-foreground mt-1">
+                {loading ? "..." : counts[col.id]}
+              </p>
+              <p className="text-xs text-muted mt-0.5 hidden sm:block">{col.description}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Mobile column selector */}
+      <div className="flex gap-1 bg-card border border-border rounded-xl p-1 sm:hidden">
+        {columnConfig.map((col) => (
+          <button
+            key={col.id}
+            onClick={() => setActiveColumn(col.id)}
+            className={`flex-1 px-2 py-2 rounded-lg text-xs font-medium transition-colors ${
+              activeColumn === col.id
+                ? "bg-coreconx text-white"
+                : "text-muted hover:text-foreground"
+            }`}
           >
-            <div className="flex items-center gap-2 text-muted">
-              {stat.icon}
-              <span className="text-xs">{stat.label}</span>
-            </div>
-            <p className="text-2xl font-semibold text-foreground mt-2">
-              {stat.value}
-            </p>
-            <p className="text-xs text-muted mt-1">{stat.sub}</p>
-          </div>
+            {col.label} ({counts[col.id]})
+          </button>
         ))}
       </div>
 
-      {/* Tabs */}
-      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-        <div className="flex gap-1 bg-card border border-border rounded-xl p-1 min-w-max sm:min-w-0">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap sm:flex-1 ${
-                activeTab === tab
-                  ? "bg-coreconx text-white"
-                  : "text-muted hover:text-foreground hover:bg-card-hover"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+      {/* Kanban Board — desktop: 4 cols, mobile: single column via selector */}
+      <div className="hidden sm:grid sm:grid-cols-4 gap-4">
+        {columnConfig.map((col) => (
+          <KanbanColumn key={col.id} col={col} counts={counts}>
+            <ColumnContent
+              colId={col.id}
+              inboxEmails={inboxEmails}
+              inProgressDrafts={inProgressDrafts}
+              reviewDrafts={reviewDrafts}
+              sentEmails={sentEmails}
+              loadingInbox={loadingInbox}
+              loadingDrafts={loadingDrafts}
+              loadingSent={loadingSent}
+              actionLoading={actionLoading}
+              draftActionLoading={draftActionLoading}
+              onOpenThread={openThread}
+              onEmailAction={emailAction}
+              onApproveDraft={approveDraft}
+              onDeleteDraft={deleteDraft}
+              onEditDraft={openEditDraft}
+            />
+          </KanbanColumn>
+        ))}
       </div>
 
-      {/* Campaign Tab */}
-      {activeTab === "Campaign" && (
-        <>
-          <div className="bg-card border border-border rounded-xl p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">
-                Founding Partner Campaign
-              </h2>
-              <span className="text-xs px-3 py-1 rounded-full bg-warning/20 text-warning font-medium">
-                Ready to Launch
-              </span>
-            </div>
-            <p className="text-sm text-muted mt-2">
-              3-email sequence — Buffett method (lead with negatives), Hormozi
-              frameworks, testimonial exchange. Click any email to view the full body.
-            </p>
-
-            <div className="mt-4 space-y-3">
-              {campaignEmails.map((email) => (
-                <button
-                  key={email.id}
-                  onClick={() => setSelectedEmail(email)}
-                  className="w-full text-left flex items-start gap-4 p-4 rounded-lg border border-border bg-background hover:border-coreconx/40 transition-colors cursor-pointer"
-                >
-                  <div className="flex-shrink-0 w-16 text-center">
-                    <span className="text-xs font-mono text-muted">
-                      {email.day}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-medium text-foreground shrink-0">
-                        {email.name}
-                      </h3>
-                      <ArrowRight size={12} className="text-muted shrink-0" />
-                      <span className="text-xs text-muted italic truncate min-w-0">
-                        &quot;{email.subject}&quot;
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted mt-1">{email.description}</p>
-                  </div>
-                  <span className="text-xs px-2 py-1 rounded bg-card-hover text-muted">
-                    {email.status}
-                  </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openSendModal(email.subject, email.body);
-                    }}
-                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-coreconx text-white font-medium hover:bg-coreconx/90 transition-colors"
-                  >
-                    <Send size={12} />
-                    Send
-                  </button>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Active Aliases */}
-          <div className="bg-card border border-border rounded-xl p-5">
-            <h2 className="text-lg font-semibold text-foreground">
-              Email Aliases
-            </h2>
-            <p className="text-xs text-muted mt-1">
-              All routed to chuck@coreconx.group
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {aliases.map((alias) => (
-                <span
-                  key={alias}
-                  className="text-xs px-3 py-1.5 rounded-full bg-coreconx/10 text-coreconx-light font-mono"
-                >
-                  {alias}
-                </span>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Templates Tab */}
-      {activeTab === "Templates" && (
-        <div className="space-y-4">
-          {loadingTemplates ? (
-            <div className="text-center py-12">
-              <Loader2 size={32} className="mx-auto text-muted animate-spin" />
-              <p className="text-muted mt-4">Loading templates from Google Sheets...</p>
-            </div>
-          ) : templateCategories.length === 0 ? (
-            <div className="text-center py-12">
-              <FileText size={40} className="mx-auto text-muted/30" />
-              <p className="text-muted mt-4">No templates found</p>
-            </div>
-          ) : (
-            templateCategories.map((cat) => (
-              <div key={cat.name} className="bg-card border border-border rounded-xl overflow-hidden">
-                <button
-                  onClick={() => setExpandedCategory(expandedCategory === cat.name ? null : cat.name)}
-                  className="w-full text-left flex items-center justify-between p-5 hover:bg-card-hover transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{cat.icon}</span>
-                    <div>
-                      <h3 className="text-base font-semibold text-foreground">{cat.name}</h3>
-                      <p className="text-xs text-muted">{cat.count || cat.templates.length} templates</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <a
-                      href={cat.sheetUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-xs px-2.5 py-1 rounded-full bg-coreconx/10 text-coreconx-light hover:bg-coreconx/20 transition-colors flex items-center gap-1"
-                    >
-                      <ExternalLink size={10} />
-                      Sheet
-                    </a>
-                    <span className="text-muted text-lg">{expandedCategory === cat.name ? "▼" : "▶"}</span>
-                  </div>
-                </button>
-                {expandedCategory === cat.name && (
-                  <div className="border-t border-border">
-                    {cat.templates.map((tpl) => {
-                      const tplKey = `${cat.name}-${tpl.name}`;
-                      const isExpanded = expandedTemplate === tplKey;
-                      return (
-                        <div key={tpl.name} className="border-b border-border last:border-b-0">
-                          <button
-                            onClick={() => setExpandedTemplate(isExpanded ? null : tplKey)}
-                            className="w-full text-left flex items-center justify-between px-5 py-3 hover:bg-card-hover transition-colors"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-sm font-medium text-foreground">{tpl.name}</h4>
-                              <p className="text-xs text-muted truncate">Subject: &quot;{tpl.subject}&quot;</p>
-                            </div>
-                            <span className="text-xs px-2.5 py-1 rounded-full bg-coreconx/10 text-coreconx-light flex-shrink-0">
-                              {isExpanded ? "Close" : "View"}
-                            </span>
-                          </button>
-                          {isExpanded && (
-                            <div className="px-5 pb-5 space-y-3">
-                              {/* Subject & Body Preview */}
-                              <div className="bg-background rounded-lg border border-border overflow-hidden">
-                                <div className="px-4 py-3 border-b border-border bg-card-hover/50">
-                                  <div className="text-xs text-muted space-y-1">
-                                    <p><span className="font-medium text-foreground">Subject:</span> {tpl.subject}</p>
-                                    {tpl.notes && (
-                                      <p><span className="font-medium text-foreground">Used for:</span> {tpl.notes}</p>
-                                    )}
-                                    {tpl.variables && (
-                                      <p><span className="font-medium text-foreground">Variables:</span> <code className="text-coreconx-light">{tpl.variables}</code></p>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="p-4">
-                                  <p className="text-sm text-foreground leading-relaxed">{tpl.bodyPreview}</p>
-                                </div>
-                              </div>
-
-                              {/* A/B Variations */}
-                              {(tpl.variationA || tpl.variationB) && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                  {tpl.variationA && (
-                                    <div className="bg-background rounded-lg border border-border p-3">
-                                      <p className="text-xs font-medium text-coreconx-light mb-1">Variation A</p>
-                                      <p className="text-xs text-muted">{tpl.variationA}</p>
-                                    </div>
-                                  )}
-                                  {tpl.variationB && (
-                                    <div className="bg-background rounded-lg border border-border p-3">
-                                      <p className="text-xs font-medium text-coreconx-light mb-1">Variation B</p>
-                                      <p className="text-xs text-muted">{tpl.variationB}</p>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Send Button */}
-                              <div className="flex justify-end">
-                                <button
-                                  onClick={() => openSendModal(tpl.subject, tpl.bodyPreview)}
-                                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-coreconx text-white text-sm font-medium hover:bg-coreconx/90 transition-colors"
-                                >
-                                  <Send size={14} />
-                                  Send This Template
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Sent Tab */}
-      {activeTab === "Sent" && (
-        <div className="space-y-4">
-          {/* Alias filter bar */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setSentAliasFilter("all")}
-              className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
-                sentAliasFilter === "all"
-                  ? "bg-coreconx text-white"
-                  : "bg-card border border-border text-muted hover:text-foreground"
-              }`}
-            >
-              All ({sentEmails.length})
-            </button>
-            {aliases.map((alias) => {
-              const count = sentEmails.filter((e) => e.from?.includes(alias.split("@")[0])).length;
-              if (count === 0) return null;
-              return (
-                <button
-                  key={alias}
-                  onClick={() => setSentAliasFilter(alias)}
-                  className={`text-xs px-3 py-1.5 rounded-full font-mono transition-colors ${
-                    sentAliasFilter === alias
-                      ? "bg-coreconx text-white"
-                      : "bg-card border border-border text-muted hover:text-foreground"
-                  }`}
-                >
-                  {alias.split("@")[0]} ({count})
-                </button>
-              );
-            })}
-            <button
-              onClick={refreshSent}
-              disabled={refreshingSent}
-              className="ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-card border border-border text-muted hover:text-foreground transition-colors"
-            >
-              <RefreshCw size={12} className={refreshingSent ? "animate-spin" : ""} />
-              Refresh
-            </button>
-          </div>
-
-          <div className="bg-card border border-border rounded-xl p-5">
-            <h2 className="text-lg font-semibold text-foreground">Sent Emails</h2>
-            <p className="text-xs text-muted mt-1">Live from Gmail — all outgoing emails from CoreConX</p>
-            {loadingSent ? (
-              <div className="mt-8 text-center py-12">
-                <Loader2 size={32} className="mx-auto text-muted animate-spin" />
-                <p className="text-muted mt-4">Loading sent emails...</p>
-              </div>
-            ) : sentEmails.length === 0 ? (
-              <div className="mt-8 text-center py-12">
-                <Send size={40} className="mx-auto text-muted/30" />
-                <p className="text-muted mt-4">No emails sent yet</p>
-                <p className="text-xs text-muted mt-1">Emails will appear here once the founding partner campaign launches</p>
-              </div>
-            ) : (
-              <div className="mt-4 space-y-2">
-                {sentEmails
-                  .filter((e) => sentAliasFilter === "all" || e.from?.includes(sentAliasFilter.split("@")[0]))
-                  .map((email, i) => (
-                  <button
-                    key={email.id || i}
-                    onClick={() => email.id && openThread(email.id)}
-                    className="w-full text-left flex items-center gap-4 p-3 rounded-lg border border-border bg-background hover:border-coreconx/40 transition-colors cursor-pointer"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{email.subject || "(no subject)"}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <p className="text-xs text-muted truncate">From: {email.from || "—"}</p>
-                        {email.messageCount && email.messageCount > 1 && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-card-hover text-muted">{email.messageCount} msgs</span>
-                        )}
-                      </div>
-                      {email.snippet && (
-                        <p className="text-xs text-muted/70 mt-1 truncate">{email.snippet}</p>
-                      )}
-                    </div>
-                    <span className="text-xs text-muted whitespace-nowrap">{email.date || "—"}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs px-2 py-1 rounded bg-success/20 text-success">Sent</span>
-                      <Eye size={14} className="text-muted" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Inbox Tab */}
-      {activeTab === "Inbox" && (
-        <div className="space-y-4">
-          {/* Alias filter bar */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setInboxAliasFilter("all")}
-              className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
-                inboxAliasFilter === "all"
-                  ? "bg-coreconx text-white"
-                  : "bg-card border border-border text-muted hover:text-foreground"
-              }`}
-            >
-              All ({inboxEmails.length})
-            </button>
-            {aliases.map((alias) => {
-              const count = inboxEmails.filter((e) => e.to?.includes(alias.split("@")[0])).length;
-              if (count === 0) return null;
-              return (
-                <button
-                  key={alias}
-                  onClick={() => setInboxAliasFilter(alias)}
-                  className={`text-xs px-3 py-1.5 rounded-full font-mono transition-colors ${
-                    inboxAliasFilter === alias
-                      ? "bg-coreconx text-white"
-                      : "bg-card border border-border text-muted hover:text-foreground"
-                  }`}
-                >
-                  {alias.split("@")[0]} ({count})
-                </button>
-              );
-            })}
-            <button
-              onClick={refreshInbox}
-              disabled={refreshingInbox}
-              className="ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-card border border-border text-muted hover:text-foreground transition-colors"
-            >
-              <RefreshCw size={12} className={refreshingInbox ? "animate-spin" : ""} />
-              Refresh
-            </button>
-          </div>
-
-          {/* Drafts Section */}
-          {drafts.length > 0 && (
-            <div className="bg-card border border-coreconx/30 rounded-xl p-5">
-              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <FileText size={18} className="text-coreconx-light" />
-                Drafts ({drafts.length})
-              </h2>
-              <p className="text-xs text-muted mt-1">Review and approve or delete pending drafts</p>
-              <div className="mt-4 space-y-2">
-                {drafts.map((draft) => (
-                  <div
-                    key={draft.id}
-                    className="flex items-center gap-4 p-3 rounded-lg border border-border bg-background"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{draft.subject || "(no subject)"}</p>
-                      <p className="text-xs text-muted truncate">To: {draft.to || "—"}{draft.from ? ` · From: ${draft.from}` : ""}</p>
-                      <p className="text-xs text-muted/70 mt-1 truncate">{draft.body?.slice(0, 120) || "(no body)"}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => approveDraft(draft.id)}
-                        disabled={!!draftActionLoading[draft.id]}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success/20 text-success text-xs font-medium hover:bg-success/30 transition-colors disabled:opacity-50"
-                      >
-                        {draftActionLoading[draft.id] === "approve" ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          <CheckCheck size={12} />
-                        )}
-                        Approve & Send
-                      </button>
-                      <button
-                        onClick={() => deleteDraft(draft.id)}
-                        disabled={!!draftActionLoading[draft.id]}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error/20 text-error text-xs font-medium hover:bg-error/30 transition-colors disabled:opacity-50"
-                      >
-                        {draftActionLoading[draft.id] === "delete" ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          <Trash2 size={12} />
-                        )}
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Inbox Emails */}
-          <div className="bg-card border border-border rounded-xl p-5">
-            <h2 className="text-lg font-semibold text-foreground">Inbox</h2>
-            <p className="text-xs text-muted mt-1">Live from Gmail — all incoming emails across CoreConX aliases</p>
-            {loadingInbox ? (
-              <div className="mt-8 text-center py-12">
-                <Loader2 size={32} className="mx-auto text-muted animate-spin" />
-                <p className="text-muted mt-4">Loading inbox...</p>
-              </div>
-            ) : inboxEmails.length === 0 ? (
-              <div className="mt-8 text-center py-12">
-                <Inbox size={40} className="mx-auto text-muted/30" />
-                <p className="text-muted mt-4">Inbox is empty</p>
-                <p className="text-xs text-muted mt-1">New emails will appear here automatically</p>
-              </div>
-            ) : (
-              <div className="mt-4 space-y-2">
-                {inboxEmails
-                  .filter((e) => inboxAliasFilter === "all" || e.to?.includes(inboxAliasFilter.split("@")[0]))
-                  .map((email, i) => (
-                  <div
-                    key={email.id || i}
-                    className="flex items-center gap-4 p-3 rounded-lg border border-border bg-background hover:border-coreconx/40 transition-colors"
-                  >
-                    <button
-                      onClick={() => email.id && openThread(email.id)}
-                      className="flex-1 min-w-0 text-left cursor-pointer"
-                    >
-                      <p className="text-sm font-medium text-foreground truncate">{email.subject || "(no subject)"}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <p className="text-xs text-muted truncate">From: {email.from || "—"}</p>
-                        {email.to && <p className="text-xs text-muted truncate">To: {email.to}</p>}
-                        {email.messageCount && email.messageCount > 1 && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-card-hover text-muted">{email.messageCount} msgs</span>
-                        )}
-                      </div>
-                      {email.snippet && (
-                        <p className="text-xs text-muted/70 mt-1 truncate">{email.snippet}</p>
-                      )}
-                    </button>
-                    <span className="text-xs text-muted whitespace-nowrap">{email.date || "—"}</span>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <button
-                        onClick={() => email.id && emailAction(email.id, "archive")}
-                        disabled={!!actionLoading[email.id || ""]}
-                        title="Archive"
-                        className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-card-hover transition-colors disabled:opacity-50"
-                      >
-                        {actionLoading[email.id || ""] === "archive" ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <Archive size={14} />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => email.id && emailAction(email.id, "mark-read")}
-                        disabled={!!actionLoading[email.id || ""]}
-                        title="Mark as read"
-                        className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-card-hover transition-colors disabled:opacity-50"
-                      >
-                        {actionLoading[email.id || ""] === "mark-read" ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <Eye size={14} />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => email.id && emailAction(email.id, "trash")}
-                        disabled={!!actionLoading[email.id || ""]}
-                        title="Trash"
-                        className="p-1.5 rounded-lg text-muted hover:text-error hover:bg-error/10 transition-colors disabled:opacity-50"
-                      >
-                        {actionLoading[email.id || ""] === "trash" ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <Trash2 size={14} />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Mobile: single column view */}
+      <div className="sm:hidden">
+        <ColumnContent
+          colId={activeColumn}
+          inboxEmails={inboxEmails}
+          inProgressDrafts={inProgressDrafts}
+          reviewDrafts={reviewDrafts}
+          sentEmails={sentEmails}
+          loadingInbox={loadingInbox}
+          loadingDrafts={loadingDrafts}
+          loadingSent={loadingSent}
+          actionLoading={actionLoading}
+          draftActionLoading={draftActionLoading}
+          onOpenThread={openThread}
+          onEmailAction={emailAction}
+          onApproveDraft={approveDraft}
+          onDeleteDraft={deleteDraft}
+          onEditDraft={openEditDraft}
+        />
+      </div>
 
       {/* Thread Detail Modal */}
       <Modal
         open={!!selectedThread || loadingThread}
-        onClose={() => { setSelectedThread(null); setLoadingThread(false); }}
+        onClose={() => {
+          setSelectedThread(null);
+          setLoadingThread(false);
+          setShowReplyForm(false);
+        }}
         title={selectedThread?.messages?.[0]?.subject || "Email Thread"}
         subtitle={selectedThread?.messages?.[0]?.from ? `From: ${selectedThread.messages[0].from}` : ""}
       >
@@ -951,9 +409,9 @@ export default function EmailsPage() {
               <div key={msg.id || i} className="bg-background rounded-lg border border-border overflow-hidden">
                 <div className="px-4 py-3 border-b border-border bg-card-hover/50">
                   <div className="text-xs text-muted space-y-1">
-                    <p><span className="font-medium text-foreground">From:</span> {msg.from || "—"}</p>
-                    <p><span className="font-medium text-foreground">To:</span> {msg.to || "—"}</p>
-                    <p><span className="font-medium text-foreground">Date:</span> {msg.date || "—"}</p>
+                    <p><span className="font-medium text-foreground">From:</span> {msg.from || "\u2014"}</p>
+                    <p><span className="font-medium text-foreground">To:</span> {msg.to || "\u2014"}</p>
+                    <p><span className="font-medium text-foreground">Date:</span> {msg.date || "\u2014"}</p>
                     {msg.subject && <p><span className="font-medium text-foreground">Subject:</span> {msg.subject}</p>}
                   </div>
                 </div>
@@ -976,7 +434,7 @@ export default function EmailsPage() {
               </button>
             )}
 
-            {/* Draft Reply Form (COR-21) */}
+            {/* Draft Reply Form */}
             {showReplyForm && (
               <div className="bg-background rounded-lg border border-coreconx/40 overflow-hidden">
                 <div className="px-4 py-3 border-b border-border bg-card-hover/50 flex items-center justify-between">
@@ -989,7 +447,7 @@ export default function EmailsPage() {
                   </button>
                 </div>
                 <div className="p-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-muted block mb-1">To</label>
                       <input
@@ -999,7 +457,7 @@ export default function EmailsPage() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted block mb-1">From</label>
+                      <label className="text-xs text-muted block mb-1">From (alias)</label>
                       <select
                         value={replyFrom}
                         onChange={(e) => setReplyFrom(e.target.value)}
@@ -1042,7 +500,7 @@ export default function EmailsPage() {
                       className="flex items-center gap-2 px-4 py-2 rounded-lg bg-coreconx text-white text-sm font-medium hover:bg-coreconx/90 transition-colors disabled:opacity-50"
                     >
                       {savingDraft ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-                      Save as Draft
+                      Save Draft to Review
                     </button>
                   </div>
                 </div>
@@ -1054,147 +512,364 @@ export default function EmailsPage() {
         )}
       </Modal>
 
-      {/* Legal Docs Tab */}
-      {activeTab === "Legal Docs" && (
-        <div className="space-y-4">
-          {legalDocs.map((section) => (
-            <div key={section.phase} className="bg-card border border-border rounded-xl p-5">
-              <h2 className="text-lg font-semibold text-foreground">{section.phase}</h2>
-              <div className="mt-3 space-y-2">
-                {section.docs.map((doc) => (
-                  <a
-                    key={doc.name}
-                    href={doc.url || "#"}
-                    target={doc.url ? "_blank" : undefined}
-                    rel="noopener noreferrer"
-                    className={`flex items-center justify-between p-3 rounded-lg border border-border bg-background transition-colors ${
-                      doc.url ? "hover:border-coreconx/40 cursor-pointer" : "opacity-60"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <FileText size={16} className="text-coreconx-light" />
-                      <span className="text-sm font-medium text-foreground">{doc.name}</span>
-                    </div>
-                    {doc.url ? (
-                      <ExternalLink size={14} className="text-muted" />
-                    ) : (
-                      <span className="text-xs text-muted">In Drive — link pending</span>
-                    )}
-                  </a>
-                ))}
+      {/* Edit Draft Modal */}
+      <Modal
+        open={!!editingDraft}
+        onClose={() => setEditingDraft(null)}
+        title="Edit Draft"
+        subtitle="Update the response before approving"
+      >
+        {editingDraft && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted block mb-1">To</label>
+                <input
+                  value={editTo}
+                  onChange={(e) => setEditTo(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted block mb-1">From (alias)</label>
+                <select
+                  value={editFrom}
+                  onChange={(e) => setEditFrom(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx"
+                >
+                  {aliases.map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
               </div>
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Campaign Email Modal */}
-      <Modal
-        open={!!selectedEmail}
-        onClose={() => setSelectedEmail(null)}
-        title={selectedEmail?.name || ""}
-        subtitle={selectedEmail ? `Subject: "${selectedEmail.subject}"` : ""}
-      >
-        {selectedEmail && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="text-xs px-2.5 py-1 rounded-full bg-warning/20 text-warning font-medium">
-                {selectedEmail.status}
-              </span>
-              <span className="text-xs text-muted">Send on {selectedEmail.day}</span>
-            </div>
-            <div className="bg-background rounded-lg p-4 border border-border">
-              <h4 className="text-xs font-medium text-muted mb-2">Strategy</h4>
-              <p className="text-sm text-foreground">{selectedEmail.description}</p>
-            </div>
-            <div className="bg-background rounded-lg p-4 border border-border">
-              <h4 className="text-xs font-medium text-muted mb-2">Email Body</h4>
-              <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{selectedEmail.body}</pre>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Send Email Modal */}
-      <Modal
-        open={sendModalOpen}
-        onClose={() => { setSendModalOpen(false); setSendResult(null); }}
-        title="Send Email"
-        subtitle="Customize placeholders like [Name], [Company] before sending"
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-muted block mb-1">To</label>
+              <label className="text-xs text-muted block mb-1">Subject</label>
               <input
-                value={sendTo}
-                onChange={(e) => setSendTo(e.target.value)}
-                placeholder="recipient@example.com"
+                value={editSubject}
+                onChange={(e) => setEditSubject(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx"
               />
             </div>
             <div>
-              <label className="text-xs text-muted block mb-1">From</label>
-              <select
-                value={sendFrom}
-                onChange={(e) => setSendFrom(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx"
+              <label className="text-xs text-muted block mb-1">Body</label>
+              <textarea
+                value={editBody}
+                onChange={(e) => setEditBody(e.target.value)}
+                rows={10}
+                className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx resize-y font-sans leading-relaxed"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setEditingDraft(null)}
+                className="px-4 py-2 text-sm text-muted hover:text-foreground transition-colors"
               >
-                {aliases.map((a) => (
-                  <option key={a} value={a}>{a}</option>
-                ))}
-              </select>
+                Cancel
+              </button>
+              <button
+                onClick={saveEditedDraft}
+                disabled={savingDraft || !editTo || !editBody}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-coreconx text-white text-sm font-medium hover:bg-coreconx/90 transition-colors disabled:opacity-50"
+              >
+                {savingDraft ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+                Save Changes
+              </button>
             </div>
           </div>
-          <div>
-            <label className="text-xs text-muted block mb-1">Subject</label>
-            <input
-              value={sendSubject}
-              onChange={(e) => setSendSubject(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted block mb-1">Body</label>
-            <textarea
-              value={sendBody}
-              onChange={(e) => setSendBody(e.target.value)}
-              rows={12}
-              className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-coreconx resize-y font-sans leading-relaxed"
-            />
-          </div>
-
-          {sendResult && (
-            <div
-              className={`text-sm px-4 py-3 rounded-lg ${
-                sendResult.type === "success"
-                  ? "bg-success/20 text-success"
-                  : "bg-error/20 text-error"
-              }`}
-            >
-              {sendResult.message}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => { setSendModalOpen(false); setSendResult(null); }}
-              className="px-4 py-2 text-sm text-muted hover:text-foreground transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={sendEmail}
-              disabled={sending || !sendTo || !sendSubject || !sendBody}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-coreconx text-white text-sm font-medium hover:bg-coreconx/90 transition-colors disabled:opacity-50"
-            >
-              {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-              Send Email
-            </button>
-          </div>
-        </div>
+        )}
       </Modal>
+    </div>
+  );
+}
 
+// --- Kanban Column Wrapper ---
+
+function KanbanColumn({
+  col,
+  counts,
+  children,
+}: {
+  col: typeof columnConfig[number];
+  counts: Record<ColumnId, number>;
+  children: React.ReactNode;
+}) {
+  const Icon = col.icon;
+  return (
+    <div className="bg-card border border-border rounded-xl flex flex-col min-h-[400px] max-h-[calc(100vh-280px)]">
+      <div className="px-3 py-3 border-b border-border flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <Icon size={14} className={col.color} />
+          <span className="text-sm font-semibold text-foreground">{col.label}</span>
+        </div>
+        <span className="text-xs px-2 py-0.5 rounded-full bg-card-hover text-muted font-medium">
+          {counts[col.id]}
+        </span>
+      </div>
+      <div className="flex-1 overflow-y-auto p-2 space-y-2">{children}</div>
+    </div>
+  );
+}
+
+// --- Column Content ---
+
+function ColumnContent({
+  colId,
+  inboxEmails,
+  inProgressDrafts,
+  reviewDrafts,
+  sentEmails,
+  loadingInbox,
+  loadingDrafts,
+  loadingSent,
+  actionLoading,
+  draftActionLoading,
+  onOpenThread,
+  onEmailAction,
+  onApproveDraft,
+  onDeleteDraft,
+  onEditDraft,
+}: {
+  colId: ColumnId;
+  inboxEmails: GmailThread[];
+  inProgressDrafts: Draft[];
+  reviewDrafts: Draft[];
+  sentEmails: GmailThread[];
+  loadingInbox: boolean;
+  loadingDrafts: boolean;
+  loadingSent: boolean;
+  actionLoading: Record<string, string>;
+  draftActionLoading: Record<string, string>;
+  onOpenThread: (id: string) => void;
+  onEmailAction: (id: string, action: "archive" | "mark-read" | "trash") => void;
+  onApproveDraft: (id: string) => void;
+  onDeleteDraft: (id: string) => void;
+  onEditDraft: (draft: Draft) => void;
+}) {
+  if (colId === "inbox") {
+    if (loadingInbox) return <LoadingState />;
+    if (inboxEmails.length === 0) return <EmptyState icon={Inbox} text="Inbox empty" sub="No emails need a reply" />;
+    return (
+      <>
+        {inboxEmails.map((email, i) => (
+          <div
+            key={email.id || i}
+            className="rounded-lg border border-border bg-background p-3 hover:border-coreconx/40 transition-colors"
+          >
+            <button
+              onClick={() => email.id && onOpenThread(email.id)}
+              className="w-full text-left"
+            >
+              <p className="text-sm font-medium text-foreground truncate">{email.subject || "(no subject)"}</p>
+              <p className="text-xs text-muted truncate mt-0.5">{email.from || "\u2014"}</p>
+              {email.snippet && (
+                <p className="text-xs text-muted/60 mt-1 line-clamp-2">{email.snippet}</p>
+              )}
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-[10px] text-muted">{email.date || ""}</span>
+                {email.messageCount && email.messageCount > 1 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-card-hover text-muted">{email.messageCount} msgs</span>
+                )}
+              </div>
+            </button>
+            <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border/50">
+              <button
+                onClick={() => email.id && onEmailAction(email.id, "archive")}
+                disabled={!!actionLoading[email.id || ""]}
+                title="Archive"
+                className="p-1.5 rounded text-muted hover:text-foreground hover:bg-card-hover transition-colors disabled:opacity-50"
+              >
+                {actionLoading[email.id || ""] === "archive" ? <Loader2 size={12} className="animate-spin" /> : <Archive size={12} />}
+              </button>
+              <button
+                onClick={() => email.id && onEmailAction(email.id, "mark-read")}
+                disabled={!!actionLoading[email.id || ""]}
+                title="Mark read"
+                className="p-1.5 rounded text-muted hover:text-foreground hover:bg-card-hover transition-colors disabled:opacity-50"
+              >
+                {actionLoading[email.id || ""] === "mark-read" ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />}
+              </button>
+              <button
+                onClick={() => email.id && onEmailAction(email.id, "trash")}
+                disabled={!!actionLoading[email.id || ""]}
+                title="Trash"
+                className="p-1.5 rounded text-muted hover:text-error hover:bg-error/10 transition-colors disabled:opacity-50"
+              >
+                {actionLoading[email.id || ""] === "trash" ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+              </button>
+            </div>
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  if (colId === "drafts") {
+    if (loadingDrafts) return <LoadingState />;
+    if (inProgressDrafts.length === 0) {
+      return (
+        <EmptyState
+          icon={Edit3}
+          text="No drafts in progress"
+          sub="Click 'Draft Reply' on an inbox email to start"
+        />
+      );
+    }
+    return (
+      <>
+        {inProgressDrafts.map((draft) => (
+          <DraftCard
+            key={draft.id}
+            draft={draft}
+            draftActionLoading={draftActionLoading}
+            onEdit={onEditDraft}
+            onDelete={onDeleteDraft}
+          />
+        ))}
+      </>
+    );
+  }
+
+  if (colId === "review") {
+    if (loadingDrafts) return <LoadingState />;
+    if (reviewDrafts.length === 0) return <EmptyState icon={Clock} text="Nothing to review" sub="Drafts will appear here for approval" />;
+    return (
+      <>
+        {reviewDrafts.map((draft) => (
+          <div
+            key={draft.id}
+            className="rounded-lg border border-coreconx/30 bg-background p-3"
+          >
+            <p className="text-sm font-medium text-foreground truncate">{draft.subject || "(no subject)"}</p>
+            <p className="text-xs text-muted truncate mt-0.5">To: {draft.to || "\u2014"}</p>
+            {draft.from && <p className="text-xs text-muted/60 truncate">From: {draft.from}</p>}
+            <p className="text-xs text-muted/60 mt-1 line-clamp-2">{draft.body?.slice(0, 120) || "(no body)"}</p>
+            <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border/50">
+              <button
+                onClick={() => onApproveDraft(draft.id)}
+                disabled={!!draftActionLoading[draft.id]}
+                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-success/20 text-success text-xs font-medium hover:bg-success/30 transition-colors disabled:opacity-50"
+              >
+                {draftActionLoading[draft.id] === "approve" ? (
+                  <Loader2 size={11} className="animate-spin" />
+                ) : (
+                  <CheckCheck size={11} />
+                )}
+                Approve
+              </button>
+              <button
+                onClick={() => onEditDraft(draft)}
+                className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-card-hover transition-colors"
+                title="Edit"
+              >
+                <Edit3 size={12} />
+              </button>
+              <button
+                onClick={() => onDeleteDraft(draft.id)}
+                disabled={!!draftActionLoading[draft.id]}
+                className="p-1.5 rounded-lg text-muted hover:text-error hover:bg-error/10 transition-colors disabled:opacity-50"
+                title="Delete"
+              >
+                {draftActionLoading[draft.id] === "delete" ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Trash2 size={12} />
+                )}
+              </button>
+            </div>
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  if (colId === "sent") {
+    if (loadingSent) return <LoadingState />;
+    if (sentEmails.length === 0) return <EmptyState icon={Send} text="No sent emails" sub="Approved replies appear here" />;
+    return (
+      <>
+        {sentEmails.map((email, i) => (
+          <button
+            key={email.id || i}
+            onClick={() => email.id && onOpenThread(email.id)}
+            className="w-full text-left rounded-lg border border-border bg-background p-3 hover:border-coreconx/40 transition-colors"
+          >
+            <p className="text-sm font-medium text-foreground truncate">{email.subject || "(no subject)"}</p>
+            <p className="text-xs text-muted truncate mt-0.5">To: {email.to || email.from || "\u2014"}</p>
+            {email.snippet && (
+              <p className="text-xs text-muted/60 mt-1 line-clamp-2">{email.snippet}</p>
+            )}
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-[10px] text-muted">{email.date || ""}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/20 text-success">Sent</span>
+            </div>
+          </button>
+        ))}
+      </>
+    );
+  }
+
+  return null;
+}
+
+// --- Shared Components ---
+
+function DraftCard({
+  draft,
+  draftActionLoading,
+  onEdit,
+  onDelete,
+}: {
+  draft: Draft;
+  draftActionLoading: Record<string, string>;
+  onEdit: (draft: Draft) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-warning/30 bg-background p-3">
+      <p className="text-sm font-medium text-foreground truncate">{draft.subject || "(no subject)"}</p>
+      <p className="text-xs text-muted truncate mt-0.5">To: {draft.to || "\u2014"}</p>
+      {draft.from && <p className="text-xs text-muted/60 truncate">From: {draft.from}</p>}
+      <p className="text-xs text-muted/60 mt-1 line-clamp-2">{draft.body?.slice(0, 120) || "(no body)"}</p>
+      <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border/50">
+        <button
+          onClick={() => onEdit(draft)}
+          className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-warning/20 text-warning text-xs font-medium hover:bg-warning/30 transition-colors"
+        >
+          <Edit3 size={11} />
+          Edit
+        </button>
+        <button
+          onClick={() => onDelete(draft.id)}
+          disabled={!!draftActionLoading[draft.id]}
+          className="p-1.5 rounded-lg text-muted hover:text-error hover:bg-error/10 transition-colors disabled:opacity-50"
+          title="Delete"
+        >
+          {draftActionLoading[draft.id] === "delete" ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <Trash2 size={12} />
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="flex items-center justify-center py-8">
+      <Loader2 size={20} className="text-muted animate-spin" />
+    </div>
+  );
+}
+
+function EmptyState({ icon: Icon, text, sub }: { icon: typeof Inbox; text: string; sub: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-8 text-center">
+      <Icon size={24} className="text-muted/30" />
+      <p className="text-xs text-muted mt-2">{text}</p>
+      <p className="text-[10px] text-muted/60 mt-0.5">{sub}</p>
     </div>
   );
 }
