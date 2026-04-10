@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { execSync, exec, execFile } from 'child_process';
+import { execSync, execFile } from 'child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync } from 'fs';
 import { createClient } from '@supabase/supabase-js';
 

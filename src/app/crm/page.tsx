@@ -141,7 +141,8 @@ export default function CRMPage() {
   }, []);
 
   useEffect(() => {
-    loadData();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch on mount
+    void loadData();
   }, [loadData]);
 
   function getContact(companyName: string) {
