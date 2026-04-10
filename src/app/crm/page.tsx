@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Users, Search, ExternalLink, MapPin, Mail, FileText, Plus, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 
 interface Company {
   "Company Name": string;
@@ -53,15 +54,46 @@ export default function CRMPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [newDocName, setNewDocName] = useState("");
+  const [dataSource, setDataSource] = useState<"supabase" | "sheets">("supabase");
 
   useEffect(() => {
     async function load() {
-      const [compData, contData] = await Promise.all([
-        apiFetch<Company[]>("/api/crm/companies"),
-        apiFetch<Contact[]>("/api/crm/contacts"),
-      ]);
-      if (compData) setCompanies(compData);
+      // Try Supabase first, fall back to Google Sheets API
+      const { data: sbCompanies, error } = await supabase
+        .from("companies")
+        .select("*")
+        .order("name");
+
+      if (!error && sbCompanies && sbCompanies.length > 0) {
+        // Map Supabase columns to existing Company interface
+        const mapped: Company[] = sbCompanies.map((c: Record<string, unknown>) => ({
+          "Company Name": (c.name as string) || "",
+          Website: (c.website as string) || "",
+          "Province/State": (c.province_state as string) || (c.state as string) || "",
+          Country: (c.country as string) || "",
+          City: (c.city as string) || "",
+          "# of Rigs": String(c.num_rigs ?? c.rig_count ?? ""),
+          Specialties: (c.specialties as string) || "",
+          "Size (S/M/L)": (c.size as string) || "",
+          "Lead Status": (c.lead_status as string) || "Research",
+          "Lead Score (1-10)": String(c.lead_score ?? "0"),
+          "Priority (H/M/L)": (c.priority as string) || "",
+          Notes: (c.notes as string) || "",
+          "Recent Intel": (c.recent_intel as string) || "",
+        }));
+        setCompanies(mapped);
+        setDataSource("supabase");
+      } else {
+        // Fallback to Sheets API
+        const compData = await apiFetch<Company[]>("/api/crm/companies");
+        if (compData) setCompanies(compData);
+        setDataSource("sheets");
+      }
+
+      // Contacts still from Sheets (no contacts table equivalent in Supabase yet)
+      const contData = await apiFetch<Contact[]>("/api/crm/contacts");
       if (contData) setContacts(contData);
+
       setLoading(false);
     }
     load();
@@ -130,7 +162,7 @@ export default function CRMPage() {
           <p className="text-muted text-xs sm:text-sm mt-1">
             {loading
               ? "Loading live data..."
-              : `${companies.length} drilling companies — live from Sheets`}
+              : `${companies.length} drilling companies — live from ${dataSource === "supabase" ? "Supabase" : "Sheets"}`}
           </p>
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -224,7 +256,7 @@ export default function CRMPage() {
             {loading ? (
               <tr>
                 <td colSpan={6} className="px-5 py-8 text-center text-muted text-sm">
-                  Loading live data from Google Sheets...
+                  Loading live data...
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
