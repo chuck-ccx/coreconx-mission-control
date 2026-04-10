@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Users, Search, ExternalLink, MapPin, Mail, FileText, Plus, X, Pencil } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
+import { useRealtime } from "@/lib/use-realtime";
 import { Modal } from "@/components/modal";
 
 interface Company {
@@ -144,6 +145,10 @@ export default function CRMPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch on mount
     void loadData();
   }, [loadData]);
+
+  // Real-time sync: reload when companies or contacts change in Supabase
+  useRealtime("companies", loadData);
+  useRealtime("contacts", loadData);
 
   function getContact(companyName: string) {
     return contacts.find((c) => c["Company Name"] === companyName);
