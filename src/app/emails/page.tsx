@@ -10,7 +10,6 @@ import {
   RefreshCw,
   Eye,
   X,
-  Archive,
   Trash2,
   CheckCheck,
   Reply,
@@ -20,7 +19,6 @@ import {
   Megaphone,
   LayoutTemplate,
   Plus,
-  Copy,
   ShieldCheck,
   ShieldAlert,
   ShieldQuestion,
@@ -277,9 +275,9 @@ export default function EmailsPage() {
   };
 
   useEffect(() => {
-    fetchInbox();
-    fetchDrafts();
-    fetchSent();
+    void fetchInbox(); // eslint-disable-line react-hooks/set-state-in-effect
+    void fetchDrafts();
+    void fetchSent();
   }, [fetchInbox, fetchDrafts, fetchSent]);
 
   // --- Actions ---
@@ -1112,10 +1110,8 @@ function ColumnContent({
   loadingInbox,
   loadingDrafts,
   loadingSent,
-  actionLoading,
   draftActionLoading,
   onOpenThread,
-  onEmailAction,
   onApproveDraft,
   onDeleteDraft,
   onEditDraft,
@@ -1263,7 +1259,6 @@ function ColumnContent({
           const isBounced = labels.some((l) => l.toLowerCase().includes("bounce") || l.toLowerCase().includes("failed"));
           const healthStatus = isSpam ? "spam" : isBounced ? "bounced" : "delivered";
           const HealthIcon = healthStatus === "delivered" ? ShieldCheck : healthStatus === "spam" ? ShieldAlert : ShieldQuestion;
-          const healthColor = healthStatus === "delivered" ? "text-success" : healthStatus === "spam" ? "text-error" : "text-warning";
           const healthLabel = healthStatus === "delivered" ? "Delivered" : healthStatus === "spam" ? "Spam Risk" : "Bounced";
 
           return (

@@ -1,35 +1,42 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Lock, Eye, EyeOff } from "lucide-react";
 
 const AUTH_KEY = "coreconx-auth";
 
 export function AuthGuard({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(AUTH_KEY) === "authenticated";
+  });
+  const [isLoading] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const stored = localStorage.getItem(AUTH_KEY);
-    if (stored === "authenticated") {
-      setIsAuthenticated(true);
-    }
-    setIsLoading(false);
-  }, []);
-
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (username === "dylan" && password === "Chuck101") {
-      localStorage.setItem(AUTH_KEY, "authenticated");
-      setIsAuthenticated(true);
-    } else {
-      setError("Invalid username or password");
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://api.ccxmc.ca';
+      const res = await fetch(`${apiBase}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.token) localStorage.setItem('mc-api-token', data.token);
+        localStorage.setItem(AUTH_KEY, "authenticated");
+        setIsAuthenticated(true);
+      } else {
+        setError("Invalid username or password");
+      }
+    } catch {
+      setError("Cannot reach server — check your connection");
     }
   };
 
