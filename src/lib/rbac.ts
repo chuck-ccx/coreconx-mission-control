@@ -14,6 +14,7 @@ export interface UserProfile {
 const routeAccess: Record<string, Role[]> = {
   '/users':     ['admin'],
   '/settings':  ['admin'],
+  '/shifts':    ['admin', 'manager'],
   '/reports':   ['admin', 'manager'],
   '/crm':       ['admin', 'manager'],
   '/tasks':     ['admin', 'manager'],

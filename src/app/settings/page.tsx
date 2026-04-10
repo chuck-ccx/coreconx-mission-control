@@ -13,6 +13,8 @@ import {
   Loader2,
   Save,
   RefreshCw,
+  UserPlus,
+  Send,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/lib/api";
@@ -34,6 +36,13 @@ export default function SettingsPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(60);
   const [saved, setSaved] = useState(false);
+
+  // Team invite
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteCompany, setInviteCompany] = useState("");
+  const [inviteRole, setInviteRole] = useState("viewer");
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   // Services
   const [services, setServices] = useState<ServiceStatus[]>([
@@ -201,6 +210,84 @@ export default function SettingsPage() {
               />
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Team Invite (COR-77) */}
+      <div className="bg-card border border-border rounded-xl">
+        <div className="p-4 border-b border-border">
+          <h2 className="text-sm font-medium text-foreground flex items-center gap-2">
+            <UserPlus size={16} className="text-success" />
+            Invite Teammate
+          </h2>
+        </div>
+        <div className="p-4 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-muted mb-1.5">Email Address</label>
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="teammate@company.com"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx/60"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1.5">Company ID</label>
+              <input
+                type="text"
+                value={inviteCompany}
+                onChange={(e) => setInviteCompany(e.target.value)}
+                placeholder="company-uuid"
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx/60"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1.5">Role</label>
+              <select
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value)}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx/60"
+              >
+                <option value="viewer">Viewer</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+          {inviteResult && (
+            <p className={`text-xs ${inviteResult.ok ? "text-success" : "text-danger"}`}>
+              {inviteResult.msg}
+            </p>
+          )}
+          <button
+            disabled={inviteSending || !inviteEmail || !inviteCompany}
+            onClick={async () => {
+              setInviteSending(true);
+              setInviteResult(null);
+              try {
+                const res = await apiFetch<{ sent?: boolean; error?: string }>("/api/team/invite", {
+                  method: "POST",
+                  body: JSON.stringify({ email: inviteEmail, company_id: inviteCompany, role: inviteRole }),
+                });
+                if (res?.sent) {
+                  setInviteResult({ ok: true, msg: `Invite sent to ${inviteEmail}` });
+                  setInviteEmail("");
+                } else {
+                  setInviteResult({ ok: false, msg: res?.error || "Failed to send invite" });
+                }
+              } catch {
+                setInviteResult({ ok: false, msg: "Failed to reach server" });
+              } finally {
+                setInviteSending(false);
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-coreconx text-white rounded-lg hover:bg-coreconx-light transition-colors disabled:opacity-50"
+          >
+            <Send size={14} />
+            {inviteSending ? "Sending..." : "Send Invite"}
+          </button>
         </div>
       </div>
 

@@ -1596,39 +1596,84 @@ app.get('/api/activity/agents', (req, res) => {
 
 // ==================== Email Workflows (COR-77, COR-78, COR-84) ====================
 
-// COR-77: Invite teammate email
-app.post('/api/team/invite', (req, res) => {
+// Shared HTML email wrapper
+function htmlEmail(content) {
+  return [
+    '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">',
+    '<div style="background:#1a1a2e;padding:24px 32px;text-align:center">',
+    '<span style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px">CoreConX</span>',
+    '<span style="color:#6366f1;font-size:14px;display:block;margin-top:2px">Mission Control</span>',
+    '</div>',
+    '<div style="padding:32px">',
+    content,
+    '</div>',
+    '<div style="background:#f9fafb;padding:16px 32px;text-align:center;font-size:12px;color:#6b7280;border-top:1px solid #e5e7eb">',
+    'CoreConX &copy; 2026 &mdash; Built for drilling companies that move fast.',
+    '</div>',
+    '</div>',
+  ].join('');
+}
+
+function esc(str) {
+  return (str || '').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+}
+
+// COR-77: Invite teammate email (with Supabase Auth admin)
+app.post('/api/team/invite', async (req, res) => {
   const { email, company_id, role } = req.body;
   if (!email || !company_id || !role) {
     return res.status(400).json({ error: 'email, company_id, and role are required' });
   }
 
-  const signupLink = `https://ccxmc.ca/signup?invite=true&company=${encodeURIComponent(company_id)}&role=${encodeURIComponent(role)}`;
-  const subject = `You're invited to join CoreConX Mission Control`;
-  const body = [
-    `Hi,`,
-    ``,
-    `You've been invited to join CoreConX Mission Control as a ${role}.`,
-    ``,
-    `Click the link below to create your account and get started:`,
-    `${signupLink}`,
-    ``,
-    `If you didn't expect this invitation, you can safely ignore this email.`,
-    ``,
-    `— The CoreConX Team`,
-  ].join('\\n');
-
-  const raw = gog(`gmail send --to "${email}" --subject "${subject.replace(/"/g, '\\"')}" --body "${body.replace(/"/g, '\\"')}" -j -y`);
-  if (raw === null) return res.status(500).json({ error: 'Failed to send invite email' });
+  const validRoles = ['admin', 'manager', 'viewer'];
+  if (!validRoles.includes(role)) {
+    return res.status(400).json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
+  }
 
   try {
-    res.json({ sent: true, email, role, company_id, ...JSON.parse(raw) });
-  } catch {
-    res.json({ sent: true, email, role, company_id, raw });
+    const { data: existing } = await supabase.from('profiles').select('id').eq('email', email).single();
+    if (existing) return res.status(409).json({ error: 'User with this email already exists' });
+
+    const { data: authData, error: authError } = await supabase.auth.admin.inviteUserByEmail(email);
+    if (authError) return res.status(500).json({ error: `Auth invite failed: ${authError.message}` });
+
+    const inviteToken = authData.user?.id || '';
+    const signupLink = `https://ccxmc.ca/signup?invite=${encodeURIComponent(inviteToken)}&company=${encodeURIComponent(company_id)}&role=${encodeURIComponent(role)}`;
+
+    await supabase.from('profiles').insert({
+      id: authData.user.id,
+      email,
+      role,
+      status: 'invited',
+      display_name: email.split('@')[0],
+      invited_by: req.body.invited_by || null,
+    });
+
+    const content = [
+      '<h2 style="color:#1a1a2e;margin:0 0 16px">You\'re invited!</h2>',
+      `<p style="color:#374151;line-height:1.6">You've been invited to join <strong>CoreConX Mission Control</strong> as a <strong>${role}</strong>.</p>`,
+      '<p style="color:#374151;line-height:1.6">CoreConX is the operational backbone for drilling companies — track shifts, manage crews, monitor consumables, and run your operation from one place.</p>',
+      `<div style="text-align:center;margin:28px 0"><a href="${signupLink}" style="background:#6366f1;color:#ffffff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">Accept Invitation</a></div>`,
+      `<p style="color:#9ca3af;font-size:13px">Or copy this link: ${signupLink}</p>`,
+      '<p style="color:#9ca3af;font-size:13px;margin-top:24px">If you didn\'t expect this invitation, you can safely ignore this email.</p>',
+    ].join('');
+    const body = htmlEmail(content);
+
+    const subject = "You're invited to join CoreConX Mission Control";
+    const raw = gog(`gmail send --to "${esc(email)}" --subject "${esc(subject)}" --body "${esc(body)}" -j -y`);
+    if (raw === null) return res.status(500).json({ error: 'Failed to send invite email' });
+
+    try {
+      res.json({ sent: true, email, role, company_id, invite_id: inviteToken, ...JSON.parse(raw) });
+    } catch {
+      res.json({ sent: true, email, role, company_id, invite_id: inviteToken, raw });
+    }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
-// COR-78: Shift summary email
+// COR-78: Shift summary email (HTML)
 app.post('/api/shifts/:id/summary-email', async (req, res) => {
   const { id } = req.params;
 
@@ -1644,29 +1689,35 @@ app.post('/api/shifts/:id/summary-email', async (req, res) => {
     const ownerEmail = shift.drill_owner_email || shift.owner_email;
     if (!ownerEmail) return res.status(400).json({ error: 'No drill owner email on this shift' });
 
-    const subject = `Shift Summary — ${shift.name || shift.site_name || 'Shift'} (${shift.date || new Date().toISOString().split('T')[0]})`;
-    const lines = [
-      `Shift Summary`,
-      `=============`,
-      ``,
-      `Site: ${shift.site_name || 'N/A'}`,
-      `Date: ${shift.date || 'N/A'}`,
-      `Shift: ${shift.name || shift.shift_type || 'N/A'}`,
-      ``,
-      `Meters Drilled: ${shift.meters ?? shift.meters_drilled ?? 'N/A'}`,
-      `Holes Completed: ${shift.holes ?? shift.holes_completed ?? 'N/A'}`,
-      `Crew: ${shift.crew || shift.crew_count || 'N/A'}`,
-      `Consumables: ${shift.consumables || 'N/A'}`,
-      ``,
-      `Notes: ${shift.notes || 'None'}`,
-      ``,
-      `---`,
-      `To unsubscribe from shift summaries, visit:`,
-      `https://ccxmc.ca/settings/notifications?unsubscribe=shift-summary`,
-    ];
-    const body = lines.join('\\n');
+    const shiftDate = shift.date || new Date().toISOString().split('T')[0];
+    const shiftName = shift.name || shift.site_name || 'Shift';
+    const subject = `Shift Summary — ${shiftName} (${shiftDate})`;
 
-    const raw = gog(`gmail send --to "${ownerEmail}" --subject "${subject.replace(/"/g, '\\"')}" --body "${body.replace(/"/g, '\\"')}" -j -y`);
+    const row = (label, value) =>
+      `<tr><td style="padding:8px 12px;color:#6b7280;font-size:14px;border-bottom:1px solid #f3f4f6">${label}</td><td style="padding:8px 12px;color:#1a1a2e;font-weight:600;font-size:14px;border-bottom:1px solid #f3f4f6">${value}</td></tr>`;
+
+    const crewNames = Array.isArray(shift.crew) ? shift.crew.join(', ') : (shift.crew || shift.crew_names || 'N/A');
+    const consumables = Array.isArray(shift.consumables) ? shift.consumables.join(', ') : (shift.consumables || 'N/A');
+
+    const content = [
+      `<h2 style="color:#1a1a2e;margin:0 0 8px">Shift Summary</h2>`,
+      `<p style="color:#6b7280;margin:0 0 24px;font-size:14px">${shiftName} &mdash; ${shiftDate}</p>`,
+      '<table style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:6px;overflow:hidden">',
+      row('Meters Drilled', shift.meters ?? shift.meters_drilled ?? 'N/A'),
+      row('Holes Worked', shift.holes ?? shift.holes_completed ?? 'N/A'),
+      row('Crew', crewNames),
+      row('Consumables', consumables),
+      row('Site', shift.site_name || 'N/A'),
+      '</table>',
+      shift.notes
+        ? `<div style="margin-top:24px;padding:16px;background:#eff6ff;border-left:4px solid #6366f1;border-radius:4px"><strong style="color:#1a1a2e">Key Notes</strong><p style="color:#374151;margin:8px 0 0;line-height:1.6">${shift.notes}</p></div>`
+        : '',
+      '<hr style="border:none;border-top:1px solid #e5e7eb;margin:28px 0 12px">',
+      '<p style="color:#9ca3af;font-size:11px;text-align:center"><a href="https://ccxmc.ca/settings/notifications?unsubscribe=shift-summary" style="color:#6366f1">Unsubscribe</a> from shift summary emails</p>',
+    ].join('');
+    const body = htmlEmail(content);
+
+    const raw = gog(`gmail send --to "${esc(ownerEmail)}" --subject "${esc(subject)}" --body "${esc(body)}" -j -y`);
     if (raw === null) return res.status(500).json({ error: 'Failed to send shift summary email' });
 
     try {
@@ -1679,37 +1730,38 @@ app.post('/api/shifts/:id/summary-email', async (req, res) => {
   }
 });
 
-// COR-84: Founding partner welcome email
+// COR-84: Founding partner activation email (branded HTML)
 app.post('/api/onboarding/founding-partner', (req, res) => {
   const { email, name } = req.body;
   if (!email) return res.status(400).json({ error: 'email is required' });
 
   const displayName = name || email.split('@')[0];
-  const subject = `Welcome to CoreConX — Founding Partner`;
-  const lines = [
-    `Hi ${displayName},`,
-    ``,
-    `Welcome aboard as a CoreConX Founding Partner!`,
-    ``,
-    `As a founding partner, you get:`,
-    `- Lifetime discounted pricing`,
-    `- Priority feature requests`,
-    `- Direct access to the founding team`,
-    `- Early access to new modules`,
-    ``,
-    `We're building Mission Control to be the operational backbone for drilling companies, and your early support makes all the difference.`,
-    ``,
-    `We'd love to hear your story — would you be willing to share a short testimonial about why you chose CoreConX? Just reply to this email with a few sentences about your experience so far.`,
-    ``,
-    `Get started at: https://ccxmc.ca/dashboard`,
-    ``,
-    `Thanks for believing in what we're building.`,
-    ``,
-    `— Chuck & the CoreConX Team`,
-  ];
-  const body = lines.join('\\n');
+  const subject = 'Welcome to CoreConX — Founding Partner';
 
-  const raw = gog(`gmail send --to "${email}" --subject "${subject.replace(/"/g, '\\"')}" --body "${body.replace(/"/g, '\\"')}" -j -y`);
+  const content = [
+    `<h2 style="color:#1a1a2e;margin:0 0 16px">Welcome, ${displayName}!</h2>`,
+    '<p style="color:#374151;line-height:1.6">You\'re officially a <strong style="color:#6366f1">CoreConX Founding Partner</strong>. That means you\'re part of the crew building the future of drilling operations software.</p>',
+    '<div style="background:#f0f0ff;border-radius:8px;padding:20px;margin:24px 0">',
+    '<h3 style="color:#1a1a2e;margin:0 0 12px;font-size:15px">Your Founding Partner Benefits</h3>',
+    '<table style="width:100%">',
+    '<tr><td style="padding:6px 0;color:#374151;font-size:14px">&#10003; Lifetime discounted pricing</td></tr>',
+    '<tr><td style="padding:6px 0;color:#374151;font-size:14px">&#10003; Priority feature requests</td></tr>',
+    '<tr><td style="padding:6px 0;color:#374151;font-size:14px">&#10003; Direct access to the founding team</td></tr>',
+    '<tr><td style="padding:6px 0;color:#374151;font-size:14px">&#10003; Early access to new modules</td></tr>',
+    '<tr><td style="padding:6px 0;color:#374151;font-size:14px">&#10003; Input on the product roadmap</td></tr>',
+    '</table>',
+    '</div>',
+    '<p style="color:#374151;line-height:1.6">We\'d love to hear your story. Would you share a short testimonial about why you chose CoreConX? Just reply to this email — a few sentences go a long way.</p>',
+    '<div style="text-align:center;margin:28px 0"><a href="https://ccxmc.ca/dashboard" style="background:#6366f1;color:#ffffff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">Open Mission Control</a></div>',
+    '<div style="background:#f9fafb;border-radius:8px;padding:16px;margin-top:24px;text-align:center">',
+    '<p style="color:#6b7280;font-size:13px;margin:0 0 4px">Have questions or want to chat?</p>',
+    '<p style="color:#374151;font-size:14px;margin:0"><strong>Dylan Fader</strong> — Co-Founder</p>',
+    '<a href="mailto:dylan@coreconx.group" style="color:#6366f1;font-size:14px">dylan@coreconx.group</a>',
+    '</div>',
+  ].join('');
+  const body = htmlEmail(content);
+
+  const raw = gog(`gmail send --to "${esc(email)}" --subject "${esc(subject)}" --body "${esc(body)}" -j -y`);
   if (raw === null) return res.status(500).json({ error: 'Failed to send founding partner email' });
 
   try {

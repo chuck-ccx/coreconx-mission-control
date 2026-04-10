@@ -21,6 +21,7 @@ import {
   Activity,
   BarChart3,
   Settings,
+  HardHat,
 } from "lucide-react";
 import { useAuth } from "@/components/auth-guard";
 import type { Role } from "@/lib/rbac";
@@ -42,6 +43,7 @@ const navItems: NavItem[] = [
   { href: "/activity", label: "Activity",     icon: Activity,        roles: ["admin", "manager"] },
   { href: "/agents",   label: "Agents",       icon: Bot,             roles: ["admin", "manager"] },
   { href: "/calendar", label: "Calendar",     icon: Calendar,        roles: ["admin", "manager", "viewer"] },
+  { href: "/shifts",   label: "Shifts",        icon: HardHat,         roles: ["admin", "manager"] },
   { href: "/reports",  label: "Reports",      icon: BarChart3,       roles: ["admin", "manager"] },
   { href: "/chat",     label: "Secure Chat",  icon: Shield,          roles: ["admin", "manager", "viewer"] },
   { href: "/settings", label: "Settings",     icon: Settings,        roles: ["admin"] },
