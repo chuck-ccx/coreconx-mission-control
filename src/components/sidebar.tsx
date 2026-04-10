@@ -21,6 +21,7 @@ import {
   Activity,
   BarChart3,
   Settings,
+  Brain,
 } from "lucide-react";
 import { useAuth } from "@/components/auth-guard";
 import type { Role } from "@/lib/rbac";
@@ -44,6 +45,7 @@ const navItems: NavItem[] = [
   { href: "/calendar", label: "Calendar",     icon: Calendar,        roles: ["admin", "manager", "viewer"] },
   { href: "/reports",  label: "Reports",      icon: BarChart3,       roles: ["admin", "manager"] },
   { href: "/chat",     label: "Secure Chat",  icon: Shield,          roles: ["admin", "manager", "viewer"] },
+  { href: "/brain",    label: "Chuck's Brain", icon: Brain,           roles: ["admin"] },
   { href: "/settings", label: "Settings",     icon: Settings,        roles: ["admin"] },
   { href: "/users",    label: "Users",        icon: UserCog,         roles: ["admin"] },
   { href: "/errors",   label: "Errors",       icon: AlertTriangle,   roles: ["admin"] },

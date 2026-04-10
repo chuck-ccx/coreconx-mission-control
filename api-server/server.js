@@ -1756,6 +1756,81 @@ app.post('/api/onboarding/founding-partner', (req, res) => {
   }
 });
 
+// ── Chuck's Brain / Personal Wiki ──────────────────────────────
+const VAULT_PATH = '/Users/chucka.i./.openclaw/Chuck\'s Files';
+
+app.get('/api/brain/mistakes', (_req, res) => {
+  try {
+    const raw = fs.readFileSync(`${VAULT_PATH}/mistakes/mistakes.md`, 'utf-8');
+    const entries = raw.split(/^## /m).filter(Boolean).slice(1).map(block => {
+      const lines = block.trim().split('\n');
+      const title = lines[0] || '';
+      const body = lines.slice(1).join('\n').trim();
+      return { title, body };
+    });
+    res.json(entries);
+  } catch { res.json([]); }
+});
+
+app.get('/api/brain/daily', (_req, res) => {
+  try {
+    const dailyDir = `${VAULT_PATH}/daily`;
+    if (!fs.existsSync(dailyDir)) return res.json([]);
+    const files = fs.readdirSync(dailyDir).filter(f => f.endsWith('.md')).sort().reverse().slice(0, 14);
+    const logs = files.map(f => ({
+      date: f.replace('.md', ''),
+      content: fs.readFileSync(`${dailyDir}/${f}`, 'utf-8').slice(0, 2000)
+    }));
+    res.json(logs);
+  } catch { res.json([]); }
+});
+
+app.get('/api/brain/working-context', (_req, res) => {
+  try {
+    const content = fs.readFileSync(`${VAULT_PATH}/agent-shared/working-context.md`, 'utf-8');
+    res.json({ content });
+  } catch { res.json({ content: 'No working context available.' }); }
+});
+
+app.get('/api/brain/agents', (_req, res) => {
+  try {
+    const agentsDir = '/Users/chucka.i./.openclaw/workspace/agents';
+    const registry = fs.readFileSync(`${agentsDir}/REGISTRY.md`, 'utf-8');
+    const agentFiles = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md') && f !== 'REGISTRY.md');
+    const agents = agentFiles.map(f => {
+      const content = fs.readFileSync(`${agentsDir}/${f}`, 'utf-8');
+      const nameMatch = content.match(/^# (.+)/m);
+      const purposeMatch = content.match(/\*\*Purpose:\*\* (.+)/);
+      const tierMatch = content.match(/\*\*Model Tier:\*\* (.+)/);
+      return {
+        id: f.replace('.md', ''),
+        name: nameMatch ? nameMatch[1] : f.replace('.md', ''),
+        purpose: purposeMatch ? purposeMatch[1] : '',
+        tier: tierMatch ? tierMatch[1] : 'unknown'
+      };
+    });
+    res.json({ registry, agents });
+  } catch { res.json({ registry: '', agents: [] }); }
+});
+
+app.get('/api/brain/memory', (_req, res) => {
+  try {
+    const memory = fs.readFileSync('/Users/chucka.i./.openclaw/workspace/MEMORY.md', 'utf-8');
+    const sections = memory.split(/^## /m).filter(Boolean).map(block => {
+      const lines = block.trim().split('\n');
+      return { title: lines[0] || '', content: lines.slice(1).join('\n').trim() };
+    });
+    res.json(sections);
+  } catch { res.json([]); }
+});
+
+app.get('/api/brain/cross-agent-rules', (_req, res) => {
+  try {
+    const content = fs.readFileSync(`${VAULT_PATH}/agent-shared/cross-agent-rules.md`, 'utf-8');
+    res.json({ content });
+  } catch { res.json({ content: '' }); }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`CoreConX API server running on http://0.0.0.0:${PORT}`);
   console.log(`Tailscale: http://100.70.32.111:${PORT}`);
