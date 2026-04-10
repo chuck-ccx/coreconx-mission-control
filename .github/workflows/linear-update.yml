@@ -1,0 +1,53 @@
+name: Linear Auto-Update
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  update-linear:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract COR task ID
+        id: extract
+        run: |
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          TITLE="${{ github.event.pull_request.title }}"
+          # Try branch name first, then PR title
+          TASK_ID=$(echo "$BRANCH $TITLE" | grep -oiE 'COR-[0-9]+' | head -1 | tr '[:lower:]' '[:upper:]')
+          echo "task_id=$TASK_ID" >> "$GITHUB_OUTPUT"
+          if [ -z "$TASK_ID" ]; then
+            echo "No COR-XX task ID found in branch or title. Skipping."
+          else
+            echo "Found task: $TASK_ID"
+          fi
+
+      - name: Mark task Done in Linear
+        if: steps.extract.outputs.task_id != ''
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          TASK_ID: ${{ steps.extract.outputs.task_id }}
+        run: |
+          # Find the issue by identifier
+          ISSUE_ID=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"{ issueSearch(filter: { identifier: { eq: \\\"$TASK_ID\\\" } }) { nodes { id identifier title } } }\"}" \
+            | jq -r '.data.issueSearch.nodes[0].id // empty')
+
+          if [ -z "$ISSUE_ID" ]; then
+            echo "Could not find Linear issue $TASK_ID"
+            exit 0
+          fi
+
+          # Update to Done state
+          DONE_STATE="f24297a4-fa8c-4266-93f7-aa4a202193c6"
+          curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"mutation { issueUpdate(id: \\\"$ISSUE_ID\\\", input: { stateId: \\\"$DONE_STATE\\\" }) { success issue { identifier title state { name } } } }\"}" \
+            | jq '.data.issueUpdate'
+
+          echo "✅ $TASK_ID marked as Done"
