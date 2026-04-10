@@ -1,11 +1,9 @@
 import { Router } from 'express';
-import { execSync } from 'child_process';
+import { execSync, exec } from 'child_process';
 import { readFileSync } from 'fs';
 
 const router = Router();
 
-// Deploy webhook — triggers git pull + npm install + PM2 restart
-// Called by GitHub Actions after CI passes on main
 const DEPLOY_SECRET = process.env.DEPLOY_SECRET;
 router.post('/deploy', (req, res) => {
   const token = req.headers['x-deploy-token'];
@@ -16,8 +14,8 @@ router.post('/deploy', (req, res) => {
     const repoDir = '/Users/chucka.i./.openclaw/workspace/coreconx-mission-control';
     const pullResult = execSync('git pull origin main', { cwd: repoDir, timeout: 30000 }).toString();
     const installResult = execSync('npm install --production', { cwd: repoDir, timeout: 60000 }).toString();
-    const restartResult = execSync('pm2 restart mc-api', { timeout: 15000 }).toString();
-    res.json({ ok: true, pull: pullResult.trim(), install: installResult.substring(0, 200), restart: restartResult.trim() });
+    res.json({ ok: true, pull: pullResult.trim(), install: installResult.substring(0, 200), restarting: true });
+    setTimeout(() => exec('pm2 restart mc-api'), 500);
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
