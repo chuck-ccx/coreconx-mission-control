@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Users, Search, ExternalLink, MapPin, Mail, FileText, Plus, X } from "lucide-react";
+import React, { useEffect, useState, useCallback } from "react";
+import { Users, Search, ExternalLink, MapPin, Mail, FileText, Plus, X, Pencil } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
+import { Modal } from "@/components/modal";
 
 interface Company {
   "Company Name": string;
@@ -19,14 +20,18 @@ interface Company {
   "Priority (H/M/L)": string;
   Notes: string;
   "Recent Intel": string;
-  [key: string]: string;
+  _supabase_id?: string;
+  [key: string]: string | undefined;
 }
 
 interface Contact {
   "Company Name": string;
   "Full Name": string;
   Email: string;
-  [key: string]: string;
+  Phone?: string;
+  Role?: string;
+  _supabase_id?: string;
+  [key: string]: string | undefined;
 }
 
 interface Document {
@@ -45,6 +50,20 @@ const statusColors: Record<string, string> = {
   Lost: "bg-danger/20 text-danger",
 };
 
+const LEAD_STATUSES = ["Research", "Cold Outreach", "Warm", "Demo", "Customer", "Lost"];
+const SIZES = ["S", "M", "L"];
+const PRIORITIES = ["H", "M", "L"];
+
+const emptyCompanyForm = {
+  name: "", website: "", province_state: "", country: "", city: "",
+  num_rigs: "", specialties: "", size: "", lead_status: "Research",
+  lead_score: "0", priority: "", notes: "", recent_intel: "",
+};
+
+const emptyContactForm = {
+  full_name: "", email: "", company_name: "", phone: "", role: "",
+};
+
 export default function CRMPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -56,50 +75,76 @@ export default function CRMPage() {
   const [newDocName, setNewDocName] = useState("");
   const [dataSource, setDataSource] = useState<"supabase" | "sheets">("supabase");
 
-  useEffect(() => {
-    async function load() {
-      // Try Supabase first, fall back to Google Sheets API
-      const { data: sbCompanies, error } = await supabase
-        .from("companies")
-        .select("*")
-        .order("name");
+  // Modal state
+  const [companyModal, setCompanyModal] = useState<"add" | "edit" | null>(null);
+  const [contactModal, setContactModal] = useState<"add" | "edit" | null>(null);
+  const [companyForm, setCompanyForm] = useState(emptyCompanyForm);
+  const [contactForm, setContactForm] = useState(emptyContactForm);
+  const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-      if (!error && sbCompanies && sbCompanies.length > 0) {
-        // Map Supabase columns to existing Company interface
-        const mapped: Company[] = sbCompanies.map((c: Record<string, unknown>) => ({
-          "Company Name": (c.name as string) || "",
-          Website: (c.website as string) || "",
-          "Province/State": (c.province_state as string) || (c.state as string) || "",
-          Country: (c.country as string) || "",
-          City: (c.city as string) || "",
-          "# of Rigs": String(c.num_rigs ?? c.rig_count ?? ""),
-          Specialties: (c.specialties as string) || "",
-          "Size (S/M/L)": (c.size as string) || "",
-          "Lead Status": (c.lead_status as string) || "Research",
-          "Lead Score (1-10)": String(c.lead_score ?? "0"),
-          "Priority (H/M/L)": (c.priority as string) || "",
-          Notes: (c.notes as string) || "",
-          "Recent Intel": (c.recent_intel as string) || "",
-        }));
-        setCompanies(mapped);
-        setDataSource("supabase");
-      } else {
-        // Fallback to Sheets API
-        const compData = await apiFetch<Company[]>("/api/crm/companies");
-        if (compData) setCompanies(compData);
-        setDataSource("sheets");
-      }
+  const loadData = useCallback(async () => {
+    // Try Supabase first for companies, fall back to Sheets
+    const { data: sbCompanies, error } = await supabase
+      .from("companies")
+      .select("*")
+      .order("name");
 
-      // Contacts still from Sheets (no contacts table equivalent in Supabase yet)
+    if (!error && sbCompanies && sbCompanies.length > 0) {
+      const mapped: Company[] = sbCompanies.map((c: Record<string, unknown>) => ({
+        "Company Name": (c.name as string) || "",
+        Website: (c.website as string) || "",
+        "Province/State": (c.province_state as string) || (c.state as string) || "",
+        Country: (c.country as string) || "",
+        City: (c.city as string) || "",
+        "# of Rigs": String(c.num_rigs ?? c.rig_count ?? ""),
+        Specialties: (c.specialties as string) || "",
+        "Size (S/M/L)": (c.size as string) || "",
+        "Lead Status": (c.lead_status as string) || "Research",
+        "Lead Score (1-10)": String(c.lead_score ?? "0"),
+        "Priority (H/M/L)": (c.priority as string) || "",
+        Notes: (c.notes as string) || "",
+        "Recent Intel": (c.recent_intel as string) || "",
+        _supabase_id: String(c.id ?? ""),
+      }));
+      setCompanies(mapped);
+      setDataSource("supabase");
+    } else {
+      const compData = await apiFetch<Company[]>("/api/crm/companies");
+      if (compData) setCompanies(compData);
+      setDataSource("sheets");
+    }
+
+    // Contacts: try Supabase profiles first, fall back to Sheets
+    const { data: sbContacts, error: contactsError } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("full_name");
+
+    if (!contactsError && sbContacts && sbContacts.length > 0) {
+      const mapped: Contact[] = sbContacts.map((c: Record<string, unknown>) => ({
+        "Company Name": (c.company_name as string) || "",
+        "Full Name": (c.full_name as string) || "",
+        Email: (c.email as string) || "",
+        Phone: (c.phone as string) || "",
+        Role: (c.role as string) || "",
+        _supabase_id: String(c.id ?? ""),
+      }));
+      setContacts(mapped);
+    } else {
       const contData = await apiFetch<Contact[]>("/api/crm/contacts");
       if (contData) setContacts(contData);
-
-      setLoading(false);
     }
-    load();
+
+    setLoading(false);
   }, []);
 
-  // Match contacts to companies
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch on mount
+    void loadData();
+  }, [loadData]);
+
   function getContact(companyName: string) {
     return contacts.find((c) => c["Company Name"] === companyName);
   }
@@ -142,6 +187,97 @@ export default function CRMPage() {
     loadDocuments(name);
   }
 
+  // Company CRUD
+  function openAddCompany() {
+    setCompanyForm(emptyCompanyForm);
+    setEditingCompanyId(null);
+    setCompanyModal("add");
+  }
+
+  function openEditCompany(company: Company) {
+    setCompanyForm({
+      name: company["Company Name"],
+      website: company.Website,
+      province_state: company["Province/State"],
+      country: company.Country,
+      city: company.City,
+      num_rigs: company["# of Rigs"],
+      specialties: company.Specialties,
+      size: company["Size (S/M/L)"],
+      lead_status: company["Lead Status"],
+      lead_score: company["Lead Score (1-10)"],
+      priority: company["Priority (H/M/L)"],
+      notes: company.Notes,
+      recent_intel: company["Recent Intel"],
+    });
+    setEditingCompanyId(company._supabase_id || null);
+    setCompanyModal("edit");
+  }
+
+  async function saveCompany() {
+    setSaving(true);
+    const payload = {
+      ...companyForm,
+      num_rigs: companyForm.num_rigs ? parseInt(companyForm.num_rigs) || null : null,
+      lead_score: parseInt(companyForm.lead_score) || 0,
+    };
+
+    if (companyModal === "edit" && editingCompanyId) {
+      await apiFetch(`/api/crm/supabase/companies/${editingCompanyId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+    } else {
+      await apiFetch("/api/crm/supabase/companies", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    }
+
+    setSaving(false);
+    setCompanyModal(null);
+    await loadData();
+  }
+
+  // Contact CRUD
+  function openAddContact(companyName?: string) {
+    setContactForm({ ...emptyContactForm, company_name: companyName || "" });
+    setEditingContactId(null);
+    setContactModal("add");
+  }
+
+  function openEditContact(contact: Contact) {
+    setContactForm({
+      full_name: contact["Full Name"],
+      email: contact.Email,
+      company_name: contact["Company Name"],
+      phone: contact.Phone || "",
+      role: contact.Role || "",
+    });
+    setEditingContactId(contact._supabase_id || null);
+    setContactModal("edit");
+  }
+
+  async function saveContact() {
+    setSaving(true);
+
+    if (contactModal === "edit" && editingContactId) {
+      await apiFetch(`/api/crm/supabase/contacts/${editingContactId}`, {
+        method: "PATCH",
+        body: JSON.stringify(contactForm),
+      });
+    } else {
+      await apiFetch("/api/crm/supabase/contacts", {
+        method: "POST",
+        body: JSON.stringify(contactForm),
+      });
+    }
+
+    setSaving(false);
+    setContactModal(null);
+    await loadData();
+  }
+
   const filtered = companies.filter((c) =>
     (c["Company Name"] || "").toLowerCase().includes(search.toLowerCase())
   );
@@ -165,7 +301,7 @@ export default function CRMPage() {
               : `${companies.length} drilling companies — live from ${dataSource === "supabase" ? "Supabase" : "Sheets"}`}
           </p>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:flex-initial">
             <Search
               size={16}
@@ -179,15 +315,28 @@ export default function CRMPage() {
               className="w-full bg-background border border-border rounded-lg pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:border-coreconx-light"
             />
           </div>
+          <button
+            onClick={openAddCompany}
+            className="flex items-center gap-1.5 px-3 py-2 bg-coreconx text-white rounded-lg text-sm hover:bg-coreconx-light transition-colors whitespace-nowrap"
+          >
+            <Plus size={14} />
+            <span className="hidden sm:inline">Company</span>
+          </button>
+          <button
+            onClick={() => openAddContact()}
+            className="flex items-center gap-1.5 px-3 py-2 bg-accent-light/20 text-accent-light rounded-lg text-sm hover:bg-accent-light/30 transition-colors whitespace-nowrap"
+          >
+            <Plus size={14} />
+            <span className="hidden sm:inline">Contact</span>
+          </button>
           <a
             href="https://docs.google.com/spreadsheets/d/1arbZpTV9DSVS8w-4FA8XhV59x_DWxpGIP1dI5vxX3ak/edit"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-coreconx text-white rounded-lg text-sm hover:bg-coreconx-light transition-colors whitespace-nowrap"
+            className="flex items-center gap-2 px-3 py-2 bg-coreconx text-white rounded-lg text-sm hover:bg-coreconx-light transition-colors whitespace-nowrap"
           >
             <ExternalLink size={14} />
-            <span className="hidden sm:inline">Open Sheet</span>
-            <span className="sm:hidden">Sheet</span>
+            <span className="hidden sm:inline">Sheet</span>
           </a>
         </div>
       </div>
@@ -250,18 +399,20 @@ export default function CRMPage() {
               <th className="text-left text-xs font-medium text-muted px-5 py-3">
                 Score
               </th>
+              <th className="text-left text-xs font-medium text-muted px-5 py-3 w-10">
+              </th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-5 py-8 text-center text-muted text-sm">
+                <td colSpan={7} className="px-5 py-8 text-center text-muted text-sm">
                   Loading live data...
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-5 py-8 text-center text-muted text-sm">
+                <td colSpan={7} className="px-5 py-8 text-center text-muted text-sm">
                   No companies found
                 </td>
               </tr>
@@ -297,7 +448,21 @@ export default function CRMPage() {
                         </div>
                       </td>
                       <td className="px-5 py-4 text-sm text-foreground">
-                        {contact?.["Full Name"] || "—"}
+                        {contact ? (
+                          <span
+                            onClick={(e) => { e.stopPropagation(); openEditContact(contact); }}
+                            className="hover:text-coreconx-light cursor-pointer"
+                          >
+                            {contact["Full Name"]}
+                          </span>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openAddContact(company["Company Name"]); }}
+                            className="text-xs text-muted hover:text-coreconx-light"
+                          >
+                            + Add contact
+                          </button>
+                        )}
                       </td>
                       <td className="px-5 py-4">
                         {contact?.Email ? (
@@ -341,10 +506,20 @@ export default function CRMPage() {
                           </span>
                         </div>
                       </td>
+                      <td className="px-5 py-4">
+                        {company._supabase_id && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openEditCompany(company); }}
+                            className="p-1.5 rounded-lg text-muted hover:text-coreconx-light hover:bg-card-hover transition-colors"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        )}
+                      </td>
                     </tr>
                     {isSelected && (
                       <tr>
-                        <td colSpan={6} className="p-0">
+                        <td colSpan={7} className="p-0">
                           <div className="bg-coreconx-dark/10 border-t border-b border-coreconx-light/20 px-6 py-4 space-y-3">
                             <div className="flex items-center justify-between">
                               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -424,6 +599,231 @@ export default function CRMPage() {
           blank until nightly research finds one.
         </p>
       </div>
+
+      {/* Add/Edit Company Modal */}
+      <Modal
+        open={companyModal !== null}
+        onClose={() => setCompanyModal(null)}
+        title={companyModal === "edit" ? "Edit Company" : "Add Company"}
+        subtitle={companyModal === "edit" ? `Editing ${companyForm.name}` : "Add a new drilling company to the CRM"}
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Company Name *</label>
+              <input
+                type="text"
+                value={companyForm.name}
+                onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Website</label>
+              <input
+                type="text"
+                value={companyForm.website}
+                onChange={(e) => setCompanyForm({ ...companyForm, website: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">City</label>
+              <input
+                type="text"
+                value={companyForm.city}
+                onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Province/State</label>
+              <input
+                type="text"
+                value={companyForm.province_state}
+                onChange={(e) => setCompanyForm({ ...companyForm, province_state: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Country</label>
+              <input
+                type="text"
+                value={companyForm.country}
+                onChange={(e) => setCompanyForm({ ...companyForm, country: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1"># of Rigs</label>
+              <input
+                type="text"
+                value={companyForm.num_rigs}
+                onChange={(e) => setCompanyForm({ ...companyForm, num_rigs: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Specialties</label>
+              <input
+                type="text"
+                value={companyForm.specialties}
+                onChange={(e) => setCompanyForm({ ...companyForm, specialties: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Size</label>
+              <select
+                value={companyForm.size}
+                onChange={(e) => setCompanyForm({ ...companyForm, size: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              >
+                <option value="">—</option>
+                {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Lead Status</label>
+              <select
+                value={companyForm.lead_status}
+                onChange={(e) => setCompanyForm({ ...companyForm, lead_status: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              >
+                {LEAD_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Lead Score (1-10)</label>
+              <input
+                type="number"
+                min="0"
+                max="10"
+                value={companyForm.lead_score}
+                onChange={(e) => setCompanyForm({ ...companyForm, lead_score: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Priority</label>
+              <select
+                value={companyForm.priority}
+                onChange={(e) => setCompanyForm({ ...companyForm, priority: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              >
+                <option value="">—</option>
+                {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted mb-1">Notes</label>
+            <textarea
+              value={companyForm.notes}
+              onChange={(e) => setCompanyForm({ ...companyForm, notes: e.target.value })}
+              rows={2}
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light resize-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted mb-1">Recent Intel</label>
+            <textarea
+              value={companyForm.recent_intel}
+              onChange={(e) => setCompanyForm({ ...companyForm, recent_intel: e.target.value })}
+              rows={2}
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light resize-none"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              onClick={() => setCompanyModal(null)}
+              className="px-4 py-2 text-sm text-muted hover:text-foreground transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={saveCompany}
+              disabled={!companyForm.name.trim() || saving}
+              className="px-4 py-2 bg-coreconx text-white rounded-lg text-sm hover:bg-coreconx-light transition-colors disabled:opacity-40"
+            >
+              {saving ? "Saving..." : companyModal === "edit" ? "Update Company" : "Add Company"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Add/Edit Contact Modal */}
+      <Modal
+        open={contactModal !== null}
+        onClose={() => setContactModal(null)}
+        title={contactModal === "edit" ? "Edit Contact" : "Add Contact"}
+        subtitle={contactModal === "edit" ? `Editing ${contactForm.full_name}` : "Add a new contact"}
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Full Name *</label>
+              <input
+                type="text"
+                value={contactForm.full_name}
+                onChange={(e) => setContactForm({ ...contactForm, full_name: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Email</label>
+              <input
+                type="email"
+                value={contactForm.email}
+                onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Company</label>
+              <input
+                type="text"
+                value={contactForm.company_name}
+                onChange={(e) => setContactForm({ ...contactForm, company_name: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Phone</label>
+              <input
+                type="text"
+                value={contactForm.phone}
+                onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-muted mb-1">Role / Title</label>
+              <input
+                type="text"
+                value={contactForm.role}
+                onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              onClick={() => setContactModal(null)}
+              className="px-4 py-2 text-sm text-muted hover:text-foreground transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={saveContact}
+              disabled={!contactForm.full_name.trim() || saving}
+              className="px-4 py-2 bg-coreconx text-white rounded-lg text-sm hover:bg-coreconx-light transition-colors disabled:opacity-40"
+            >
+              {saving ? "Saving..." : contactModal === "edit" ? "Update Contact" : "Add Contact"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
