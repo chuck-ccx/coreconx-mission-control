@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Calendar, Clock, Repeat, Bell, Loader2, RefreshCw, CheckCircle2, Circle } from "lucide-react";
+import { Calendar, Clock, Repeat, Bell, Loader2, RefreshCw, CheckCircle2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 interface ScheduledTask {
@@ -123,7 +123,7 @@ export default function CalendarPage() {
   }, []);
 
   useEffect(() => {
-    fetchAll();
+    void fetchAll(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [fetchAll]);
 
   // Auto-refresh every 60s
