@@ -98,10 +98,11 @@ export default function ActivityPage() {
   }, []);
 
   useEffect(() => {
-    fetchAll();
+    void fetchAll();
     // Auto-refresh every 60s
-    const interval = setInterval(() => fetchAll(), 60000);
+    const interval = setInterval(() => void fetchAll(), 60000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
   }, [fetchAll]);
 
   const openPRs = prs.filter((pr) => pr.state === "OPEN");
