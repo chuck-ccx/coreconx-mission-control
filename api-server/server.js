@@ -1594,6 +1594,131 @@ app.get('/api/activity/agents', (req, res) => {
   res.json(logs);
 });
 
+// ==================== Email Workflows (COR-77, COR-78, COR-84) ====================
+
+// COR-77: Invite teammate email
+app.post('/api/team/invite', (req, res) => {
+  const { email, company_id, role } = req.body;
+  if (!email || !company_id || !role) {
+    return res.status(400).json({ error: 'email, company_id, and role are required' });
+  }
+
+  const signupLink = `https://ccxmc.ca/signup?invite=true&company=${encodeURIComponent(company_id)}&role=${encodeURIComponent(role)}`;
+  const subject = `You're invited to join CoreConX Mission Control`;
+  const body = [
+    `Hi,`,
+    ``,
+    `You've been invited to join CoreConX Mission Control as a ${role}.`,
+    ``,
+    `Click the link below to create your account and get started:`,
+    `${signupLink}`,
+    ``,
+    `If you didn't expect this invitation, you can safely ignore this email.`,
+    ``,
+    `— The CoreConX Team`,
+  ].join('\\n');
+
+  const raw = gog(`gmail send --to "${email}" --subject "${subject.replace(/"/g, '\\"')}" --body "${body.replace(/"/g, '\\"')}" -j -y`);
+  if (raw === null) return res.status(500).json({ error: 'Failed to send invite email' });
+
+  try {
+    res.json({ sent: true, email, role, company_id, ...JSON.parse(raw) });
+  } catch {
+    res.json({ sent: true, email, role, company_id, raw });
+  }
+});
+
+// COR-78: Shift summary email
+app.post('/api/shifts/:id/summary-email', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { data: shift, error } = await supabase
+      .from('shifts')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !shift) return res.status(404).json({ error: 'Shift not found' });
+
+    const ownerEmail = shift.drill_owner_email || shift.owner_email;
+    if (!ownerEmail) return res.status(400).json({ error: 'No drill owner email on this shift' });
+
+    const subject = `Shift Summary — ${shift.name || shift.site_name || 'Shift'} (${shift.date || new Date().toISOString().split('T')[0]})`;
+    const lines = [
+      `Shift Summary`,
+      `=============`,
+      ``,
+      `Site: ${shift.site_name || 'N/A'}`,
+      `Date: ${shift.date || 'N/A'}`,
+      `Shift: ${shift.name || shift.shift_type || 'N/A'}`,
+      ``,
+      `Meters Drilled: ${shift.meters ?? shift.meters_drilled ?? 'N/A'}`,
+      `Holes Completed: ${shift.holes ?? shift.holes_completed ?? 'N/A'}`,
+      `Crew: ${shift.crew || shift.crew_count || 'N/A'}`,
+      `Consumables: ${shift.consumables || 'N/A'}`,
+      ``,
+      `Notes: ${shift.notes || 'None'}`,
+      ``,
+      `---`,
+      `To unsubscribe from shift summaries, visit:`,
+      `https://ccxmc.ca/settings/notifications?unsubscribe=shift-summary`,
+    ];
+    const body = lines.join('\\n');
+
+    const raw = gog(`gmail send --to "${ownerEmail}" --subject "${subject.replace(/"/g, '\\"')}" --body "${body.replace(/"/g, '\\"')}" -j -y`);
+    if (raw === null) return res.status(500).json({ error: 'Failed to send shift summary email' });
+
+    try {
+      res.json({ sent: true, shift_id: id, to: ownerEmail, ...JSON.parse(raw) });
+    } catch {
+      res.json({ sent: true, shift_id: id, to: ownerEmail, raw });
+    }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// COR-84: Founding partner welcome email
+app.post('/api/onboarding/founding-partner', (req, res) => {
+  const { email, name } = req.body;
+  if (!email) return res.status(400).json({ error: 'email is required' });
+
+  const displayName = name || email.split('@')[0];
+  const subject = `Welcome to CoreConX — Founding Partner`;
+  const lines = [
+    `Hi ${displayName},`,
+    ``,
+    `Welcome aboard as a CoreConX Founding Partner!`,
+    ``,
+    `As a founding partner, you get:`,
+    `- Lifetime discounted pricing`,
+    `- Priority feature requests`,
+    `- Direct access to the founding team`,
+    `- Early access to new modules`,
+    ``,
+    `We're building Mission Control to be the operational backbone for drilling companies, and your early support makes all the difference.`,
+    ``,
+    `We'd love to hear your story — would you be willing to share a short testimonial about why you chose CoreConX? Just reply to this email with a few sentences about your experience so far.`,
+    ``,
+    `Get started at: https://ccxmc.ca/dashboard`,
+    ``,
+    `Thanks for believing in what we're building.`,
+    ``,
+    `— Chuck & the CoreConX Team`,
+  ];
+  const body = lines.join('\\n');
+
+  const raw = gog(`gmail send --to "${email}" --subject "${subject.replace(/"/g, '\\"')}" --body "${body.replace(/"/g, '\\"')}" -j -y`);
+  if (raw === null) return res.status(500).json({ error: 'Failed to send founding partner email' });
+
+  try {
+    res.json({ sent: true, email, name: displayName, ...JSON.parse(raw) });
+  } catch {
+    res.json({ sent: true, email, name: displayName, raw });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`CoreConX API server running on http://0.0.0.0:${PORT}`);
   console.log(`Tailscale: http://100.70.32.111:${PORT}`);
