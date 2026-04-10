@@ -1,8 +1,22 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Send, Lock, ShieldCheck } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { Send, Lock, ShieldCheck, EyeOff } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+
+const SECRET_RE =
+  /\b(lin_api_[A-Za-z0-9_-]{10,}|sk-[A-Za-z0-9_-]{10,}|ghp_[A-Za-z0-9]{10,}|gho_[A-Za-z0-9]{10,}|xoxb-[A-Za-z0-9-]{10,}|xoxp-[A-Za-z0-9-]{10,}|glpat-[A-Za-z0-9_-]{10,}|AKIA[0-9A-Z]{12,})\b/;
+
+function containsSecret(text: string): boolean {
+  return SECRET_RE.test(text);
+}
+
+function redactSecrets(text: string): string {
+  return text.replace(new RegExp(SECRET_RE, "g"), (match) => {
+    const prefix = match.slice(0, Math.min(match.indexOf("_") + 4, 8));
+    return `${prefix}${"•".repeat(8)}`;
+  });
+}
 
 interface Message {
   from: string;
@@ -16,6 +30,8 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const inputHasSecret = useMemo(() => containsSecret(input), [input]);
 
   async function loadHistory() {
     const history = await apiFetch<Message[]>("/api/chat/history");
@@ -36,13 +52,14 @@ export default function ChatPage() {
     if (!input.trim() || sending) return;
 
     const text = input.trim();
+    const redacted = redactSecrets(text);
     setInput("");
     setSending(true);
 
-    // Optimistic update
+    // Optimistic update — always show redacted version in chat history
     setMessages((prev) => [
       ...prev,
-      { from: "dylan", message: text, timestamp: new Date().toISOString() },
+      { from: "dylan", message: redacted, timestamp: new Date().toISOString() },
     ]);
 
     const result = await apiFetch<{ ok: boolean }>("/api/chat/send", {
@@ -140,16 +157,25 @@ export default function ChatPage() {
       {/* Input */}
       <form onSubmit={sendMessage} className="pb-2 pt-3 border-t border-border">
         <div className="flex items-center gap-3">
-          <div className="flex-1 flex items-center bg-card border border-border rounded-xl px-4">
-            <Lock size={14} className="text-muted shrink-0" />
+          <div className={`flex-1 flex items-center bg-card border rounded-xl px-4 ${inputHasSecret ? "border-warning" : "border-border"}`}>
+            {inputHasSecret ? (
+              <EyeOff size={14} className="text-warning shrink-0" />
+            ) : (
+              <Lock size={14} className="text-muted shrink-0" />
+            )}
             <input
               ref={inputRef}
-              type="text"
+              type={inputHasSecret ? "password" : "text"}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type a secure message..."
               className="flex-1 px-3 py-3 bg-transparent text-foreground placeholder:text-muted focus:outline-none text-sm"
             />
+            {inputHasSecret && (
+              <span className="text-[10px] text-warning font-medium whitespace-nowrap">
+                Secret detected — will be redacted
+              </span>
+            )}
           </div>
           <button
             type="submit"
