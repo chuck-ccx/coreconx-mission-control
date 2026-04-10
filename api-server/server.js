@@ -1831,6 +1831,18 @@ app.get('/api/brain/cross-agent-rules', (_req, res) => {
   } catch (_e) { res.json({ content: '' }); }
 });
 
+app.get('/api/brain/nightly-review-status', (_req, res) => {
+  try {
+    const filePath = '/Users/chucka.i./.openclaw/workspace/last-nightly-review.txt';
+    const content = readFileSync(filePath, 'utf-8').trim();
+    const today = new Date().toISOString().split('T')[0];
+    const ranToday = content.startsWith(today);
+    res.json({ lastRun: content, ranToday, checkedAt: new Date().toISOString() });
+  } catch (_e) {
+    res.json({ lastRun: 'never', ranToday: false, checkedAt: new Date().toISOString() });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`CoreConX API server running on http://0.0.0.0:${PORT}`);
   console.log(`Tailscale: http://100.70.32.111:${PORT}`);
