@@ -86,42 +86,69 @@ function linearQuery(query) {
 
 // ==================== CRM (Google Sheets) ====================
 
+
+function parseCSV(text) {
+  const lines = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') { inQuotes = !inQuotes; continue; }
+    if (ch === '\n' && !inQuotes) { lines.push(current); current = ''; continue; }
+    if (ch === '\r' && !inQuotes) continue;
+    current += ch;
+  }
+  if (current.trim()) lines.push(current);
+  return lines.filter(l => l.trim()).map(l => l.split(','));
+}
+
+function getSheetData(sheetId, range) {
+  const raw = gog(`sheets get ${sheetId} "${range}" -p`);
+  if (raw) {
+    const lines = raw.split('\n').filter(l => l.trim());
+    if (lines.length < 2) return [];
+    const headers = lines[0].split('\t');
+    return lines.slice(1).map(line => {
+      const cols = line.split('\t');
+      const obj = {};
+      headers.forEach((h, i) => { obj[h.trim()] = (cols[i] || '').trim(); });
+      return obj;
+    });
+  }
+  // Fallback: export via Drive API
+  console.log(`Sheets API failed for ${range}, trying CSV export fallback...`);
+  const exportResult = gog(`sheets export ${sheetId} --format csv`);
+  if (!exportResult) return null;
+  const pathMatch = exportResult.match(/path\t(.+)/);
+  if (!pathMatch) return null;
+  try {
+    const csvText = readFileSync(pathMatch[1].trim(), 'utf-8');
+    const rows = parseCSV(csvText);
+    if (rows.length < 2) return [];
+    const headers = rows[0];
+    return rows.slice(1).map(cols => {
+      const obj = {};
+      headers.forEach((h, i) => { obj[h.trim()] = (cols[i] || '').trim(); });
+      return obj;
+    });
+  } catch (e) {
+    console.error(`CSV fallback error: ${e.message}`);
+    return null;
+  }
+}
+
 app.get('/api/crm/companies', (req, res) => {
   const sheetId = '1arbZpTV9DSVS8w-4FA8XhV59x_DWxpGIP1dI5vxX3ak';
-  const raw = gog(`sheets get ${sheetId} "Companies!A1:Z100" -p`);
-  if (!raw) return res.status(500).json({ error: 'Failed to fetch CRM data' });
-
-  const lines = raw.split('\n').filter(l => l.trim());
-  if (lines.length < 2) return res.json([]);
-
-  const headers = lines[0].split('\t');
-  const companies = lines.slice(1).map(line => {
-    const cols = line.split('\t');
-    const obj = {};
-    headers.forEach((h, i) => { obj[h.trim()] = (cols[i] || '').trim(); });
-    return obj;
-  });
-
-  res.json(companies);
+  const data = getSheetData(sheetId, 'Companies!A1:Z100');
+  if (data === null) return res.status(500).json({ error: 'Failed to fetch CRM data' });
+  res.json(data);
 });
 
 app.get('/api/crm/contacts', (req, res) => {
   const sheetId = '1arbZpTV9DSVS8w-4FA8XhV59x_DWxpGIP1dI5vxX3ak';
-  const raw = gog(`sheets get ${sheetId} "Contacts!A1:Z100" -p`);
-  if (!raw) return res.status(500).json({ error: 'Failed to fetch contacts' });
-
-  const lines = raw.split('\n').filter(l => l.trim());
-  if (lines.length < 2) return res.json([]);
-
-  const headers = lines[0].split('\t');
-  const contacts = lines.slice(1).map(line => {
-    const cols = line.split('\t');
-    const obj = {};
-    headers.forEach((h, i) => { obj[h.trim()] = (cols[i] || '').trim(); });
-    return obj;
-  });
-
-  res.json(contacts);
+  const data = getSheetData(sheetId, 'Contacts!A1:Z100');
+  if (data === null) return res.status(500).json({ error: 'Failed to fetch contacts' });
+  res.json(data);
 });
 
 app.get('/api/crm/pipeline', (req, res) => {
