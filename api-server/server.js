@@ -102,6 +102,26 @@ function parseCSV(text) {
   return lines.filter(l => l.trim()).map(l => l.split(','));
 }
 
+const CACHE_DIR = new URL('./cache', import.meta.url).pathname;
+
+function readCache(cacheFile) {
+  try {
+    const path = `${CACHE_DIR}/${cacheFile}`;
+    if (!existsSync(path)) return null;
+    const data = JSON.parse(readFileSync(path, 'utf-8'));
+    if (!data.values || data.values.length < 2) return [];
+    const headers = data.values[0];
+    return data.values.slice(1).map(cols => {
+      const obj = {};
+      headers.forEach((h, i) => { obj[h.trim()] = (cols[i] || '').trim(); });
+      return obj;
+    });
+  } catch (e) {
+    console.error(`Cache read error: ${e.message}`);
+    return null;
+  }
+}
+
 function getSheetData(sheetId, range) {
   const raw = gog(`sheets get ${sheetId} "${range}" -p`);
   if (raw) {
@@ -115,8 +135,19 @@ function getSheetData(sheetId, range) {
       return obj;
     });
   }
-  // Fallback: export via Drive API
-  console.log(`Sheets API failed for ${range}, trying CSV export fallback...`);
+  // Fallback 1: JSON cache files (refreshed by cron/script)
+  const cacheMap = {
+    'Companies!A1:Z100': 'crm-companies.json',
+    'Contacts!A1:Z100': 'crm-contacts.json',
+  };
+  const cacheFile = cacheMap[range];
+  if (cacheFile) {
+    console.log(`Sheets API failed for ${range}, using cache fallback...`);
+    const cached = readCache(cacheFile);
+    if (cached !== null) return cached;
+  }
+  // Fallback 2: CSV export via Drive API
+  console.log(`Cache miss for ${range}, trying CSV export fallback...`);
   const exportResult = gog(`sheets export ${sheetId} --format csv`);
   if (!exportResult) return null;
   const pathMatch = exportResult.match(/path\t(.+)/);
@@ -288,12 +319,18 @@ app.patch('/api/crm/documents/:companyName/:docIndex', (req, res) => {
 
 app.get('/api/emails/inbox', (req, res) => {
   const raw = gog('gmail search "is:unread" --max 20 -j');
-  if (!raw) return res.status(500).json({ error: 'Failed to fetch emails' });
-  try {
-    res.json(JSON.parse(raw));
-  } catch {
-    res.json({ raw });
+  if (raw) {
+    try { return res.json(JSON.parse(raw)); } catch { return res.json({ raw }); }
   }
+  // Cache fallback
+  try {
+    const cachePath = `${CACHE_DIR}/emails-unread.json`;
+    if (existsSync(cachePath)) {
+      console.log('Gmail API failed, using cache fallback...');
+      return res.json(JSON.parse(readFileSync(cachePath, 'utf-8')));
+    }
+  } catch (e) { console.error(`Email cache error: ${e.message}`); }
+  res.status(500).json({ error: 'Failed to fetch emails' });
 });
 
 app.get('/api/emails/sent', (req, res) => {
