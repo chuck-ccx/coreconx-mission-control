@@ -1189,6 +1189,24 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
 });
 
+// Health monitoring endpoint — runs the health check script and returns results
+app.get('/api/health-monitor', requireAuth, async (req, res) => {
+  const { execFile } = require('child_process');
+  const scriptPath = '/Users/chucka.i./.openclaw/workspace/scripts/mc-health-check.sh';
+
+  execFile('bash', [scriptPath], { timeout: 30000 }, (error, stdout, stderr) => {
+    if (error) {
+      return res.json({ error: 'Health check failed', details: error.message });
+    }
+    try {
+      const report = JSON.parse(stdout);
+      res.json(report);
+    } catch {
+      res.json({ error: 'Failed to parse health check output', raw: stdout.slice(0, 500) });
+    }
+  });
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`CoreConX API server running on http://0.0.0.0:${PORT}`);
   console.log(`Tailscale: http://100.70.32.111:${PORT}`);

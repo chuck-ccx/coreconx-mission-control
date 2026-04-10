@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bot, Cpu, Activity, Zap, Loader2, Wifi, WifiOff } from "lucide-react";
+import { Bot, Cpu, Activity, Zap, Loader2, Wifi, WifiOff, Heart, RefreshCw, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 interface Agent {
@@ -14,6 +14,26 @@ interface Agent {
   lastActive: string | null;
   techStack: string[];
   enabled: boolean;
+}
+
+interface HealthCheck {
+  timestamp: string;
+  checks: {
+    api_server: { status: string };
+    tunnel: { status: string };
+    tasks: { status: string; count: number; new_approved_chuck: number };
+    email: { status: string; unread: number };
+    crm: { status: string; companies: number };
+    agents: { status: string; count: number; errors: number };
+    calendar: { status: string; upcoming_events: number };
+    priorities: { stuck_high_priority: number };
+    pipeline: { status: string; total_deals: number };
+    dashboard: { status: string };
+    bugs: { status: string; unresolved: number; critical: number };
+    subagents: { total: number; stale: number; errored: number };
+  };
+  escalate: boolean;
+  escalate_reason: string | null;
 }
 
 interface ApiStatus {
@@ -52,16 +72,27 @@ const techStack = [
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [apiStatus, setApiStatus] = useState<ApiStatus | null>(null);
+  const [healthCheck, setHealthCheck] = useState<HealthCheck | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
+
+  const fetchHealth = async () => {
+    setHealthLoading(true);
+    const data = await apiFetch<HealthCheck>("/api/health-monitor");
+    if (data) setHealthCheck(data);
+    setHealthLoading(false);
+  };
 
   useEffect(() => {
     Promise.all([
       apiFetch<ApiStatus>("/api/status"),
       apiFetch<Agent[]>("/api/agents"),
-    ]).then(([statusData, agentsData]) => {
+      apiFetch<HealthCheck>("/api/health-monitor"),
+    ]).then(([statusData, agentsData, healthData]) => {
       if (statusData) setApiStatus(statusData);
       if (agentsData) setAgents(agentsData);
+      if (healthData) setHealthCheck(healthData);
       setLoading(false);
     });
   }, []);
@@ -226,6 +257,71 @@ export default function AgentsPage() {
               </div>
             ))}
           </div>
+        )}
+      </div>
+
+      {/* Health Monitor Dashboard */}
+      <div className="bg-card border border-border rounded-xl p-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <Heart size={18} className="text-coreconx-light" />
+            Health Monitor
+          </h2>
+          <button
+            onClick={fetchHealth}
+            disabled={healthLoading}
+            className="flex items-center gap-1.5 text-xs text-muted hover:text-foreground transition-colors"
+          >
+            <RefreshCw size={14} className={healthLoading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+        </div>
+        {healthCheck ? (
+          <>
+            {healthCheck.escalate && (
+              <div className="mt-3 p-3 rounded-lg bg-danger/10 border border-danger/30 flex items-start gap-2">
+                <AlertTriangle size={16} className="text-danger mt-0.5 shrink-0" />
+                <p className="text-sm text-danger">{healthCheck.escalate_reason}</p>
+              </div>
+            )}
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {[
+                { label: "API Server", status: healthCheck.checks.api_server.status },
+                { label: "Tunnel", status: healthCheck.checks.tunnel.status },
+                { label: "Tasks", status: healthCheck.checks.tasks.status, detail: `${healthCheck.checks.tasks.count} total` },
+                { label: "Email", status: healthCheck.checks.email.status, detail: `${healthCheck.checks.email.unread} unread` },
+                { label: "CRM", status: healthCheck.checks.crm.status, detail: `${healthCheck.checks.crm.companies} companies` },
+                { label: "Calendar", status: healthCheck.checks.calendar.status, detail: `${healthCheck.checks.calendar.upcoming_events} upcoming` },
+                { label: "Pipeline", status: healthCheck.checks.pipeline.status, detail: `${healthCheck.checks.pipeline.total_deals} deals` },
+                { label: "Dashboard", status: healthCheck.checks.dashboard.status },
+                { label: "Bugs", status: healthCheck.checks.bugs.status, detail: healthCheck.checks.bugs.critical > 0 ? `${healthCheck.checks.bugs.critical} critical` : `${healthCheck.checks.bugs.unresolved} open` },
+                { label: "Sub-Agents", status: healthCheck.checks.subagents.errored > 0 ? "error" : healthCheck.checks.subagents.stale > 0 ? "warning" : "ok", detail: `${healthCheck.checks.subagents.total} running` },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background">
+                  {item.status === "ok" ? (
+                    <CheckCircle size={16} className="text-success shrink-0" />
+                  ) : item.status === "down" || item.status === "error" ? (
+                    <XCircle size={16} className="text-danger shrink-0" />
+                  ) : item.status === "restarted" ? (
+                    <AlertTriangle size={16} className="text-warning shrink-0" />
+                  ) : (
+                    <AlertTriangle size={16} className="text-warning shrink-0" />
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{item.label}</p>
+                    {item.detail && <p className="text-xs text-muted">{item.detail}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted mt-3">
+              Last check: {new Date(healthCheck.timestamp).toLocaleString()}
+            </p>
+          </>
+        ) : (
+          <p className="text-sm text-muted mt-3">
+            {loading ? "Loading health data..." : "Health monitor unavailable. API may be offline."}
+          </p>
         )}
       </div>
 
