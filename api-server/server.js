@@ -154,6 +154,67 @@ app.get('/api/crm/supabase/companies', async (req, res) => {
   res.json(data);
 });
 
+app.post('/api/crm/supabase/companies', async (req, res) => {
+  const { name, website, province_state, country, city, num_rigs, specialties, size, lead_status, lead_score, priority, notes, recent_intel } = req.body;
+  if (!name) return res.status(400).json({ error: 'Company name is required' });
+  const { data, error } = await supabase
+    .from('companies')
+    .insert({ name, website, province_state, country, city, num_rigs: num_rigs || null, specialties, size, lead_status: lead_status || 'Research', lead_score: lead_score || 0, priority, notes, recent_intel })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.patch('/api/crm/supabase/companies/:id', async (req, res) => {
+  const { id } = req.params;
+  const updates = req.body;
+  delete updates.id;
+  const { data, error } = await supabase
+    .from('companies')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.get('/api/crm/supabase/contacts', async (req, res) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('full_name');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/crm/supabase/contacts', async (req, res) => {
+  const { full_name, email, company_name, phone, role } = req.body;
+  if (!full_name) return res.status(400).json({ error: 'Full name is required' });
+  const { data, error } = await supabase
+    .from('profiles')
+    .insert({ full_name, email, company_name, phone, role })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.patch('/api/crm/supabase/contacts/:id', async (req, res) => {
+  const { id } = req.params;
+  const updates = req.body;
+  delete updates.id;
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
 // ==================== CRM Documents (in-memory) ====================
 
 const DEFAULT_DOCS = [
