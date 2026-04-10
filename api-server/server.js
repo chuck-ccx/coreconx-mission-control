@@ -1267,6 +1267,153 @@ app.get('/api/health-monitor', async (req, res) => {
   });
 });
 
+// ==================== RBAC / User Management ====================
+
+// List all users (profiles table)
+app.get('/api/users', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get current user profile by email
+app.get('/api/users/me', async (req, res) => {
+  const email = req.query.email;
+  if (!email) return res.status(400).json({ error: 'Email query param required' });
+
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (error) return res.status(404).json({ error: 'Profile not found' });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Invite a new user — creates a profile with 'invited' status
+app.post('/api/users/invite', async (req, res) => {
+  const { email, role, invited_by } = req.body;
+  if (!email || !role) return res.status(400).json({ error: 'Email and role are required' });
+
+  const validRoles = ['admin', 'manager', 'viewer'];
+  if (!validRoles.includes(role)) return res.status(400).json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
+
+  try {
+    // Check if user already exists
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (existing) return res.status(409).json({ error: 'User with this email already exists' });
+
+    // Send invite via Supabase Auth (generates magic link email)
+    const { data: authData, error: authError } = await supabase.auth.admin.inviteUserByEmail(email);
+    if (authError) return res.status(500).json({ error: `Auth invite failed: ${authError.message}` });
+
+    // Create profile record
+    const { data, error } = await supabase
+      .from('profiles')
+      .insert({
+        id: authData.user.id,
+        email,
+        role,
+        status: 'invited',
+        display_name: email.split('@')[0],
+        invited_by: invited_by || null,
+      })
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Update a user's role
+app.patch('/api/users/:id/role', async (req, res) => {
+  const { id } = req.params;
+  const { role } = req.body;
+
+  const validRoles = ['admin', 'manager', 'viewer'];
+  if (!role || !validRoles.includes(role)) return res.status(400).json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
+
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ role })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Update a user's status (active, disabled)
+app.patch('/api/users/:id/status', async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  const validStatuses = ['active', 'disabled'];
+  if (!status || !validStatuses.includes(status)) return res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
+
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ status })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Delete a user
+app.delete('/api/users/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Remove from Supabase Auth
+    const { error: authError } = await supabase.auth.admin.deleteUser(id);
+    if (authError) console.error(`Auth delete warning: ${authError.message}`);
+
+    // Remove profile
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', id);
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`CoreConX API server running on http://0.0.0.0:${PORT}`);
   console.log(`Tailscale: http://100.70.32.111:${PORT}`);
