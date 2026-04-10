@@ -1,0 +1,51 @@
+name: Deploy API
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    needs: []
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Wait for CI to pass
+        if: github.event_name == 'push'
+        run: sleep 30
+
+      - name: Trigger deploy webhook
+        id: deploy
+        run: |
+          RESPONSE=$(curl -sf -X POST https://api.ccxmc.ca/deploy \
+            -H "Content-Type: application/json" \
+            -H "X-Deploy-Token: ${{ secrets.DEPLOY_SECRET }}" \
+            --max-time 120 2>&1) || {
+            echo "::error::Deploy webhook failed: $RESPONSE"
+            exit 1
+          }
+          echo "Deploy response: $RESPONSE"
+          echo "response=$RESPONSE" >> $GITHUB_OUTPUT
+
+      - name: Wait for server restart
+        run: sleep 10
+
+      - name: Health check
+        run: |
+          for i in 1 2 3; do
+            HEALTH=$(curl -sf https://api.ccxmc.ca/health --max-time 10 2>&1) && {
+              echo "Health check passed: $HEALTH"
+              exit 0
+            }
+            echo "Attempt $i failed, retrying in 5s..."
+            sleep 5
+          done
+          echo "::error::API health check failed after 3 attempts"
+          exit 1
+
+      - name: Alert on failure
+        if: failure()
+        run: |
+          echo "::error::API DEPLOY FAILED — check https://api.ccxmc.ca/health"
