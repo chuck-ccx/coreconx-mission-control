@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { CheckSquare, Circle, Clock, CheckCircle2, Loader2, RefreshCw, ThumbsUp, Trash2, X, UserCircle, ChevronDown } from "lucide-react";
 import { Modal } from "@/components/modal";
 import { apiFetch } from "@/lib/api";
+import { useRealtime } from "@/lib/use-realtime";
 
 interface LinearIssue {
   id: string;
@@ -97,6 +98,10 @@ export default function TasksPage() {
   }, []);
 
   useEffect(() => { void fetchData(); }, [fetchData]); // eslint-disable-line react-hooks/set-state-in-effect
+
+  // Real-time sync: refresh when tasks table changes in Supabase
+  const refreshTasks = useCallback(() => { void fetchData(true); }, [fetchData]);
+  useRealtime("tasks", refreshTasks);
 
   // Auto-refresh every 60s
   useEffect(() => {
