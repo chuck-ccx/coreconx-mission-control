@@ -1196,6 +1196,16 @@ app.get('/api/legal/docs', (req, res) => {
 
 const CHAT_DIR = process.env.CHAT_DIR || '/Users/chucka.i./.openclaw/workspace/secure-chat';
 
+const SECRET_PATTERN =
+  /\b(lin_api_[A-Za-z0-9_-]{10,}|sk-[A-Za-z0-9_-]{10,}|ghp_[A-Za-z0-9]{10,}|gho_[A-Za-z0-9]{10,}|xoxb-[A-Za-z0-9-]{10,}|xoxp-[A-Za-z0-9-]{10,}|glpat-[A-Za-z0-9_-]{10,}|AKIA[0-9A-Z]{12,})\b/g;
+
+function redactSecrets(text) {
+  return text.replace(SECRET_PATTERN, (match) => {
+    const prefix = match.slice(0, Math.min(match.indexOf('_') + 4, 8));
+    return `${prefix}${'•'.repeat(8)}`;
+  });
+}
+
 app.post('/api/chat/send', (req, res) => {
   const { message } = req.body;
   if (!message || typeof message !== 'string' || message.length > 10000) {
@@ -1205,28 +1215,31 @@ app.post('/api/chat/send', (req, res) => {
   try {
     if (!existsSync(CHAT_DIR)) mkdirSync(CHAT_DIR, { recursive: true });
 
+    // Redact any secrets before persisting to disk
+    const safeMessage = redactSecrets(message.trim());
+
     const entry = JSON.stringify({
       from: 'dylan',
-      message: message.trim(),
+      message: safeMessage,
       timestamp: new Date().toISOString(),
     });
     appendFileSync(`${CHAT_DIR}/messages.jsonl`, entry + '\n');
 
-    // Fire OpenClaw system event so Chuck picks it up
+    // Fire OpenClaw system event — use redacted message only
     try {
-      const safeMsg = message.trim().substring(0, 200).replace(/\n/g, ' ');
+      const safeMsg = safeMessage.substring(0, 200).replace(/\n/g, ' ');
       execSync('openclaw system event --mode now --text "$CHAT_MSG"', {
         timeout: 5000,
         shell: '/bin/bash',
         env: { ...process.env, PATH: `/opt/homebrew/bin:${process.env.PATH}`, CHAT_MSG: `Secure chat from Dylan: ${safeMsg}` },
       });
     } catch (err) {
-      console.error(`[chat] OpenClaw notify failed: ${err.message}`);
+      console.error('[chat] OpenClaw notify failed');
     }
 
     res.json({ ok: true, received: true });
   } catch (err) {
-    console.error(`[chat] Write failed: ${err.message}`);
+    console.error('[chat] Write failed');
     res.status(500).json({ error: 'Failed to store message' });
   }
 });
