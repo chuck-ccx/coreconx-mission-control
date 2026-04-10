@@ -58,8 +58,14 @@ export default function OutreachPage() {
   const [newNotes, setNewNotes] = useState("");
   const [newFollowUp, setNewFollowUp] = useState("");
 
+  async function loadContacts() {
+    const data = await apiFetch<OutreachContact[]>("/api/outreach");
+    if (data) setContacts(data);
+    setLoading(false);
+  }
+
   useEffect(() => {
-    loadContacts();
+    loadContacts(); // eslint-disable-line react-hooks/set-state-in-effect
   }, []);
 
   // Close dropdown on outside click
@@ -75,12 +81,6 @@ export default function OutreachPage() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
-
-  async function loadContacts() {
-    const data = await apiFetch<OutreachContact[]>("/api/outreach");
-    if (data) setContacts(data);
-    setLoading(false);
-  }
 
   async function addContact() {
     if (!newName.trim() || !newCompany.trim()) return;

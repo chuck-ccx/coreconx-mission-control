@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { execSync, exec, execFile } from 'child_process';
+import { execSync, execFile } from 'child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync } from 'fs';
 
 const app = express();
@@ -449,7 +449,6 @@ app.post('/api/tasks/:id/assign', (req, res) => {
     const issueResult = linearQuery(`{ issue(id: "${id}") { labels { nodes { id } } } }`);
     const currentLabelIds = (issueResult?.data?.issue?.labels?.nodes || []).map(l => l.id);
     if (!currentLabelIds.includes(labelId)) currentLabelIds.push(labelId);
-    const labelIdList = currentLabelIds.map(lid => `"${lid}"`).join(', ');
 
     // Also remove Chuck label if switching assignment
     const chuckLabelResult = linearQuery(`{ issueLabels(filter: { name: { eq: "Assigned: Chuck" } }) { nodes { id } } }`);
@@ -551,7 +550,7 @@ app.get('/api/emails/thread/:threadId', (req, res) => {
       };
     });
     res.json({ id: thread.id, messages });
-  } catch (e) {
+  } catch {
     // Fallback: try fetching individual message with gmail get
     const singleRaw = gog(`gmail get ${threadId} -j`);
     if (singleRaw) {
@@ -704,7 +703,6 @@ app.get('/api/templates', (req, res) => {
       continue;
     }
 
-    const headers = lines[0].split('\t').map(h => h.trim());
     const templates = lines.slice(1).map(line => {
       const cols = line.split('\t');
       return {
@@ -742,7 +740,6 @@ app.get('/api/errors', (req, res) => {
   const lines = raw.split('\n').filter(l => l.trim());
   if (lines.length < 2) return res.json([]);
 
-  const headers = lines[0].split('\t').map(h => h.trim().toLowerCase());
   const errors = lines.slice(1).map(line => {
     const cols = line.split('\t');
     return {

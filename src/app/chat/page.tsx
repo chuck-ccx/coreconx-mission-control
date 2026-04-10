@@ -17,19 +17,19 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  async function loadHistory() {
+    const history = await apiFetch<Message[]>("/api/chat/history");
+    if (history) setMessages(history);
+  }
+
   useEffect(() => {
-    loadHistory();
+    loadHistory(); // eslint-disable-line react-hooks/set-state-in-effect
     inputRef.current?.focus();
   }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  async function loadHistory() {
-    const history = await apiFetch<Message[]>("/api/chat/history");
-    if (history) setMessages(history);
-  }
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();

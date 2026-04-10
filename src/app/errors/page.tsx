@@ -78,7 +78,7 @@ export default function ErrorsPage() {
   }, []);
 
   useEffect(() => {
-    fetchErrors();
+    void fetchErrors(); // eslint-disable-line react-hooks/set-state-in-effect
     // Auto-refresh every 60 seconds
     const interval = setInterval(() => fetchErrors(), 60000);
     return () => clearInterval(interval);
