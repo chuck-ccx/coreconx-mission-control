@@ -3,6 +3,7 @@ import { execSync, exec } from 'child_process';
 import { readFileSync } from 'fs';
 
 const router = Router();
+const BUILD_TS = new Date().toISOString();
 
 const DEPLOY_SECRET = process.env.DEPLOY_SECRET;
 router.post('/deploy', (req, res) => {
