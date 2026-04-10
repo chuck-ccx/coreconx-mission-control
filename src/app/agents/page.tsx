@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bot, Cpu, Activity, Zap, Loader2, Wifi, WifiOff, Power } from "lucide-react";
+import { Bot, Cpu, Activity, Zap, Loader2, Wifi, WifiOff } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 interface Agent {

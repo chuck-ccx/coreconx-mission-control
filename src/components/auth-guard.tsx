@@ -10,7 +10,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return false;
     return localStorage.getItem(AUTH_KEY) === "authenticated";
   });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);

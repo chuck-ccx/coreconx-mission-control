@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckSquare, Circle, Clock, CheckCircle2, Loader2, RefreshCw, ChevronRight, ThumbsUp, Trash2, X, UserCircle, ChevronDown } from "lucide-react";
+import { CheckSquare, Circle, Clock, CheckCircle2, Loader2, RefreshCw, ThumbsUp, Trash2, X, UserCircle, ChevronDown } from "lucide-react";
 import { Modal } from "@/components/modal";
 import { apiFetch } from "@/lib/api";
 
