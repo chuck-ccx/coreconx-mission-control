@@ -33,6 +33,7 @@ router.get('/health/nightly-review', (_req, res) => {
   }
 });
 
+// Liveness probe — returns 200 + timestamp. Used by external watchdogs and deploy pipeline smoke test.
 router.get('/health', (req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
 });
