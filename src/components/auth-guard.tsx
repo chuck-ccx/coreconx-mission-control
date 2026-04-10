@@ -1,37 +1,94 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, createContext, useContext, type ReactNode } from "react";
 import { Lock, Eye, EyeOff } from "lucide-react";
+import type { Role, UserProfile } from "@/lib/rbac";
 
 const AUTH_KEY = "coreconx-auth";
+const PROFILE_KEY = "coreconx-profile";
+
+interface AuthContextType {
+  logout: () => void;
+  user: UserProfile | null;
+  role: Role;
+}
+
+const AuthContext = createContext<AuthContextType>({
+  logout: () => {},
+  user: null,
+  role: "viewer",
+});
+
+export const useAuth = () => useContext(AuthContext);
 
 export function AuthGuard({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem(AUTH_KEY) === "authenticated";
   });
-  const [isLoading] = useState(false);
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const stored = localStorage.getItem(PROFILE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || "https://api.ccxmc.ca";
+  const apiToken = process.env.NEXT_PUBLIC_API_TOKEN || "";
+
+  // Fetch user profile from API
+  const fetchProfile = async (email: string) => {
+    try {
+      const res = await fetch(`${apiBase}/api/users/me?email=${encodeURIComponent(email)}`, {
+        headers: { Authorization: `Bearer ${apiToken}` },
+      });
+      if (res.ok) {
+        const profile: UserProfile = await res.json();
+        setUser(profile);
+        localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+        return profile;
+      }
+    } catch {
+      // Profile fetch failed — user continues with default role
+    }
+    return null;
+  };
+
+  // Re-fetch profile on mount if authenticated but no profile cached
+  useEffect(() => {
+    if (isAuthenticated && !user) {
+      const stored = localStorage.getItem(PROFILE_KEY);
+      if (stored) {
+        try { setUser(JSON.parse(stored)); } catch { /* ignore */ }
+      }
+    }
+  }, [isAuthenticated, user]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://api.ccxmc.ca';
       const res = await fetch(`${apiBase}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.token) localStorage.setItem('mc-api-token', data.token);
+        if (data.token) localStorage.setItem("mc-api-token", data.token);
         localStorage.setItem(AUTH_KEY, "authenticated");
         setIsAuthenticated(true);
+
+        // Try to fetch the user's profile (username is typically the email)
+        await fetchProfile(username);
       } else {
         setError("Invalid username or password");
       }
@@ -42,20 +99,12 @@ export function AuthGuard({ children }: { children: ReactNode }) {
 
   const handleLogout = () => {
     localStorage.removeItem(AUTH_KEY);
+    localStorage.removeItem(PROFILE_KEY);
     setIsAuthenticated(false);
+    setUser(null);
     setUsername("");
     setPassword("");
   };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-10 h-10 rounded-lg bg-coreconx flex items-center justify-center animate-pulse">
-          <span className="text-white font-bold text-lg">C</span>
-        </div>
-      </div>
-    );
-  }
 
   if (!isAuthenticated) {
     return (
@@ -133,17 +182,8 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ logout: handleLogout }}>
+    <AuthContext.Provider value={{ logout: handleLogout, user, role: user?.role || "admin" }}>
       {children}
     </AuthContext.Provider>
   );
 }
-
-import { createContext, useContext } from "react";
-
-interface AuthContextType {
-  logout: () => void;
-}
-
-const AuthContext = createContext<AuthContextType>({ logout: () => {} });
-export const useAuth = () => useContext(AuthContext);
