@@ -66,6 +66,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     if (isAuthenticated && !user) {
       const stored = localStorage.getItem(PROFILE_KEY);
       if (stored) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring cached profile on mount
         try { setUser(JSON.parse(stored)); } catch { /* ignore */ }
       }
     }
