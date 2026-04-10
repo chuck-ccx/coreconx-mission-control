@@ -1,0 +1,39 @@
+name: Chuck Watchdog
+
+on:
+  schedule:
+    - cron: '0 13 * * *'  # 5am PDT (UTC-7) — runs 1 hour after nightly review
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check MC API health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.ccxmc.ca/health || echo "000")
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::MC API is DOWN (HTTP $STATUS)"
+            exit 1
+          fi
+          echo "MC API healthy (HTTP $STATUS)"
+
+      - name: Check nightly review ran
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: |
+          TODAY=$(date -u +%Y-%m-%d)
+          YESTERDAY=$(date -u -d "yesterday" +%Y-%m-%d 2>/dev/null || date -u -v-1d +%Y-%m-%d)
+
+          # Check Linear for recent activity (any task updated in last 24h)
+          RESULT=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"{ issues(filter: { updatedAt: { gte: \\\"${YESTERDAY}T00:00:00Z\\\" } }) { nodes { id } } }\"}")
+
+          COUNT=$(echo "$RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('data',{}).get('issues',{}).get('nodes',[])))" 2>/dev/null || echo "0")
+          echo "Linear tasks updated in last 24h: $COUNT"
+
+          if [ "$COUNT" = "0" ]; then
+            echo "::warning::No Linear activity in 24h — nightly review may not have run"
+          fi
