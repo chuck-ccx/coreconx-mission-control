@@ -41,6 +41,17 @@ app.post('/auth/login', (req, res) => {
   return res.status(401).json({ error: 'Invalid credentials' });
 });
 
+// Public health endpoints (no auth required — used by external watchdog)
+app.get('/health/nightly-review', (_req, res) => {
+  try {
+    const content = readFileSync('/Users/chucka.i./.openclaw/workspace/last-nightly-review.txt', 'utf-8').trim();
+    const today = new Date().toISOString().split('T')[0];
+    res.json({ lastRun: content, ranToday: content.startsWith(today), checkedAt: new Date().toISOString() });
+  } catch (_e) {
+    res.json({ lastRun: 'never', ranToday: false, checkedAt: new Date().toISOString() });
+  }
+});
+
 // Auth middleware — simple bearer token
 const API_TOKEN = process.env.MC_API_TOKEN; // MUST be set in env — no fallback
 app.use('/api', (req, res, next) => {

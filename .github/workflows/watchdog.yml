@@ -21,14 +21,14 @@ jobs:
       - name: Check nightly review ran
         run: |
           # Check the timestamp file written by the nightly review cron
-          RESULT=$(curl -s -o /dev/null -w "%{http_code}" "https://api.ccxmc.ca/api/brain/nightly-review-status" || echo "000")
+          RESULT=$(curl -s -o /dev/null -w "%{http_code}" "https://api.ccxmc.ca/health/nightly-review" || echo "000")
 
           if [ "$RESULT" != "200" ]; then
             echo "::error::Cannot reach nightly review status endpoint (HTTP $RESULT)"
             exit 1
           fi
 
-          RESPONSE=$(curl -s "https://api.ccxmc.ca/api/brain/nightly-review-status")
+          RESPONSE=$(curl -s "https://api.ccxmc.ca/health/nightly-review")
           RAN_TODAY=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('ranToday', False))" 2>/dev/null || echo "False")
           LAST_RUN=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('lastRun', 'unknown'))" 2>/dev/null || echo "unknown")
 
