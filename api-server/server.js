@@ -1191,10 +1191,9 @@ app.get('/health', (req, res) => {
 
 // Health monitoring endpoint — runs the health check script and returns results
 app.get('/api/health-monitor', requireAuth, async (req, res) => {
-  const { execFile } = require('child_process');
   const scriptPath = '/Users/chucka.i./.openclaw/workspace/scripts/mc-health-check.sh';
 
-  execFile('bash', [scriptPath], { timeout: 30000 }, (error, stdout, stderr) => {
+  execFile('bash', [scriptPath], { timeout: 30000 }, (error, stdout, _stderr) => {
     if (error) {
       return res.json({ error: 'Health check failed', details: error.message });
     }
