@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   UserCog,
+  Activity,
 } from "lucide-react";
 import { useAuth } from "@/components/auth-guard";
 import type { Role } from "@/lib/rbac";
@@ -36,6 +37,7 @@ const navItems: NavItem[] = [
   { href: "/emails",   label: "Emails",       icon: Mail,            roles: ["admin", "manager"] },
   { href: "/tasks",    label: "Tasks",        icon: CheckSquare,     roles: ["admin", "manager"] },
   { href: "/legal",    label: "Legal Docs",   icon: FileText,        roles: ["admin", "manager"] },
+  { href: "/activity", label: "Activity",     icon: Activity,        roles: ["admin", "manager"] },
   { href: "/agents",   label: "Agents",       icon: Bot,             roles: ["admin", "manager"] },
   { href: "/calendar", label: "Calendar",     icon: Calendar,        roles: ["admin", "manager", "viewer"] },
   { href: "/chat",     label: "Secure Chat",  icon: Shield,          roles: ["admin", "manager", "viewer"] },
