@@ -96,7 +96,7 @@ export default function TasksPage() {
     setRefreshing(false);
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { void fetchData(); }, [fetchData]); // eslint-disable-line react-hooks/set-state-in-effect
 
   // Auto-refresh every 60s
   useEffect(() => {

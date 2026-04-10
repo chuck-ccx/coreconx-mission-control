@@ -1,25 +1,20 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Lock, Eye, EyeOff } from "lucide-react";
 
 const AUTH_KEY = "coreconx-auth";
 
 export function AuthGuard({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(AUTH_KEY) === "authenticated";
+  });
+  const [isLoading, setIsLoading] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    const stored = localStorage.getItem(AUTH_KEY);
-    if (stored === "authenticated") {
-      setIsAuthenticated(true);
-    }
-    setIsLoading(false);
-  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

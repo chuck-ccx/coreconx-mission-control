@@ -277,9 +277,9 @@ export default function EmailsPage() {
   };
 
   useEffect(() => {
-    fetchInbox();
-    fetchDrafts();
-    fetchSent();
+    void fetchInbox(); // eslint-disable-line react-hooks/set-state-in-effect
+    void fetchDrafts(); // eslint-disable-line react-hooks/set-state-in-effect
+    void fetchSent(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [fetchInbox, fetchDrafts, fetchSent]);
 
   // --- Actions ---

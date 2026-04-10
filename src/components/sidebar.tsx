@@ -40,7 +40,7 @@ export function Sidebar() {
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
-    setMobileOpen(false);
+    setMobileOpen(false); // eslint-disable-line react-hooks/set-state-in-effect
   }, [pathname]);
 
   return (
