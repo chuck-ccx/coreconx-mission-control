@@ -1,7 +1,14 @@
 import express from 'express';
 import cors from 'cors';
-import { execSync, execFile } from 'child_process';
+import { execSync, exec, execFile } from 'child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync } from 'fs';
+import { createClient } from '@supabase/supabase-js';
+
+// Supabase admin client (service role — full access, server-side only)
+const supabase = createClient(
+  process.env.SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+);
 
 const app = express();
 const PORT = 3100;
@@ -134,6 +141,17 @@ app.get('/api/crm/pipeline', (req, res) => {
   });
 
   res.json(pipeline);
+});
+
+// ==================== CRM via Supabase ====================
+
+app.get('/api/crm/supabase/companies', async (req, res) => {
+  const { data, error } = await supabase
+    .from('companies')
+    .select('*')
+    .order('name');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
 // ==================== CRM Documents (in-memory) ====================
