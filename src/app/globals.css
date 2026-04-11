@@ -59,11 +59,25 @@ body {
   background: var(--muted);
 }
 
-/* Active task pulse for Chuck's in-progress work */
-@keyframes pulse-subtle {
-  0%, 100% { box-shadow: 0 0 12px rgba(10, 77, 44, 0.25); }
-  50% { box-shadow: 0 0 20px rgba(10, 77, 44, 0.45); }
+/* Active task pulse for agent in-progress work */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(10, 77, 44, 0.2), 0 0 16px rgba(10, 77, 44, 0.1);
+    border-color: rgba(10, 77, 44, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(10, 77, 44, 0.4), 0 0 32px rgba(10, 77, 44, 0.2);
+    border-color: rgba(13, 90, 51, 0.7);
+  }
 }
-.animate-pulse-subtle {
-  animation: pulse-subtle 2.5s ease-in-out infinite;
+.animate-pulse-glow {
+  animation: pulse-glow 2.5s ease-in-out infinite;
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+.animate-dot-pulse {
+  animation: dot-pulse 1.5s ease-in-out infinite;
 }
