@@ -1,8 +1,26 @@
 import { Router } from 'express';
 import { execFile } from 'child_process';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { linearQuery } from '../helpers.js';
 
 const router = Router();
+
+const EVENTS_PATH = process.env.TASK_EVENTS_PATH || (process.env.HOME + '/.openclaw/workspace/task-events.json');
+
+function loadEvents() {
+  try {
+    if (existsSync(EVENTS_PATH)) return JSON.parse(readFileSync(EVENTS_PATH, 'utf-8'));
+  } catch { /* corrupt file */ }
+  return [];
+}
+
+function saveEvent(event) {
+  const events = loadEvents();
+  events.push({ ...event, timestamp: new Date().toISOString() });
+  if (events.length > 500) events.splice(0, events.length - 500);
+  writeFileSync(EVENTS_PATH, JSON.stringify(events, null, 2));
+  return events;
+}
 
 router.get('/', (req, res) => {
   if (!process.env.LINEAR_API_KEY) {
@@ -142,6 +160,15 @@ router.post('/:id/approve', (req, res) => {
   }
 
   const issue = result.data.issueUpdate.issue;
+
+  saveEvent({
+    type: 'approved',
+    taskId: id,
+    identifier: issue.identifier,
+    title: issue.title,
+    agent: 'dylan',
+  });
+
   res.json({ approved: true, issue });
 
   // Fire-and-forget: notify OpenClaw to pick up the task immediately
@@ -182,6 +209,58 @@ router.post('/:id/unapprove', (req, res) => {
   linearQuery(mutation);
 
   res.json({ unapproved: true });
+});
+
+// ==================== Task Pickup — Chuck acknowledges a task ====================
+
+router.post('/:id/pickup', (req, res) => {
+  const { id } = req.params;
+  const { agent = 'chuck', identifier, title } = req.body || {};
+
+  saveEvent({
+    type: 'pickup',
+    taskId: id,
+    identifier: identifier || id,
+    title: title || '',
+    agent,
+  });
+
+  console.log(`[pickup] ${agent} picked up ${identifier || id}: ${title || '(no title)'}`);
+  res.json({ acknowledged: true });
+});
+
+// ==================== Task Progress — Chuck reports progress ====================
+
+router.post('/:id/progress', (req, res) => {
+  const { id } = req.params;
+  const { agent = 'chuck', identifier, message, status } = req.body || {};
+
+  saveEvent({
+    type: 'progress',
+    taskId: id,
+    identifier: identifier || id,
+    agent,
+    message: message || '',
+    status: status || 'in_progress',
+  });
+
+  console.log(`[progress] ${identifier || id}: ${message}`);
+  res.json({ recorded: true });
+});
+
+// ==================== Task Events Feed ====================
+
+router.get('/events', (req, res) => {
+  const events = loadEvents();
+  const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+  const since = req.query.since ? new Date(req.query.since) : null;
+
+  let filtered = events;
+  if (since) {
+    filtered = events.filter(e => new Date(e.timestamp) > since);
+  }
+
+  res.json(filtered.slice(-limit));
 });
 
 // ==================== Linear — Team Members ====================
