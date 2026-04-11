@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckSquare, Circle, Clock, CheckCircle2, Loader2, RefreshCw, ThumbsUp, Trash2, X, UserCircle, ChevronDown } from "lucide-react";
+import { CheckSquare, Circle, Clock, CheckCircle2, Loader2, RefreshCw, ThumbsUp, Trash2, X, UserCircle, ChevronDown, Activity, ChevronUp, Zap, PlayCircle, MessageSquare } from "lucide-react";
 import { Modal } from "@/components/modal";
 import { apiFetch } from "@/lib/api";
 import { useRealtime } from "@/lib/use-realtime";
@@ -24,6 +24,17 @@ interface TeamMember {
   id: string;
   name: string;
   email: string;
+}
+
+interface TaskEvent {
+  type: 'approved' | 'pickup' | 'progress';
+  taskId: string;
+  identifier: string;
+  title?: string;
+  agent: string;
+  message?: string;
+  status?: string;
+  timestamp: string;
 }
 
 interface WorkflowState {
@@ -76,6 +87,8 @@ export default function TasksPage() {
   const [priorityDropdown, setPriorityDropdown] = useState<string | null>(null);
   const [changingPriority, setChangingPriority] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [taskEvents, setTaskEvents] = useState<TaskEvent[]>([]);
+  const [showActivity, setShowActivity] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const priorityDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -97,17 +110,22 @@ export default function TasksPage() {
     setRefreshing(false);
   }, []);
 
-  useEffect(() => { void fetchData(); }, [fetchData]); // eslint-disable-line react-hooks/set-state-in-effect
+  const fetchEvents = useCallback(async () => {
+    const data = await apiFetch<TaskEvent[]>("/api/tasks/events?limit=30");
+    if (data && Array.isArray(data)) setTaskEvents(data.reverse());
+  }, []);
+
+  useEffect(() => { void fetchData(); void fetchEvents(); }, [fetchData, fetchEvents]); // eslint-disable-line react-hooks/set-state-in-effect
 
   // Real-time sync: refresh when tasks table changes in Supabase
-  const refreshTasks = useCallback(() => { void fetchData(true); }, [fetchData]);
+  const refreshTasks = useCallback(() => { void fetchData(true); void fetchEvents(); }, [fetchData, fetchEvents]);
   useRealtime("tasks", refreshTasks);
 
   // Auto-refresh every 60s
   useEffect(() => {
-    const interval = setInterval(() => fetchData(true), 60000);
+    const interval = setInterval(() => { fetchData(true); fetchEvents(); }, 60000);
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [fetchData, fetchEvents]);
 
   const moveTask = async (issue: LinearIssue, targetColumnId: ColumnId) => {
     const targetStateType = columns.find(c => c.id === targetColumnId)?.stateType;
@@ -149,8 +167,7 @@ export default function TasksPage() {
     });
 
     if (result) {
-      // Refresh data to get updated labels
-      await fetchData(true);
+      await Promise.all([fetchData(true), fetchEvents()]);
     }
     setApproving(null);
   };
@@ -280,6 +297,49 @@ export default function TasksPage() {
           );
         })}
       </div>
+
+      {/* Activity Feed — Approval → Pickup → Progress pipeline */}
+      {taskEvents.length > 0 && (
+        <div className="bg-card border border-border rounded-lg">
+          <button
+            onClick={() => setShowActivity(!showActivity)}
+            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-border/30 transition-colors rounded-lg"
+          >
+            <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Activity size={14} className="text-coreconx-light" />
+              Notification Pipeline
+              <span className="text-[10px] text-muted bg-border/50 px-1.5 py-0.5 rounded-full">{taskEvents.length}</span>
+            </span>
+            {showActivity ? <ChevronUp size={14} className="text-muted" /> : <ChevronDown size={14} className="text-muted" />}
+          </button>
+          {showActivity && (
+            <div className="border-t border-border px-4 py-3 max-h-[200px] overflow-y-auto space-y-2">
+              {taskEvents.map((event, i) => {
+                const icon = event.type === 'approved' ? <Zap size={12} className="text-warning" />
+                  : event.type === 'pickup' ? <PlayCircle size={12} className="text-success" />
+                  : <MessageSquare size={12} className="text-info" />;
+                const label = event.type === 'approved' ? 'Approved'
+                  : event.type === 'pickup' ? 'Picked up'
+                  : event.status === 'done' ? 'Completed' : 'Progress';
+                const time = new Date(event.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                return (
+                  <div key={i} className="flex items-start gap-2 text-[11px]">
+                    <div className="mt-0.5">{icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-foreground">{label}</span>
+                      <span className="text-muted mx-1">·</span>
+                      <span className="text-foreground">{event.identifier}</span>
+                      {event.title && <span className="text-muted ml-1 truncate">— {event.title}</span>}
+                      {event.message && <p className="text-muted mt-0.5">{event.message}</p>}
+                    </div>
+                    <span className="text-muted whitespace-nowrap flex-shrink-0">{time}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Kanban Board */}
       <div className="flex md:grid md:grid-cols-4 gap-4 min-h-[500px] overflow-x-auto pb-4 snap-x snap-mandatory md:snap-none md:overflow-visible">
