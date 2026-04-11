@@ -233,6 +233,12 @@ export default function TasksPage() {
     return null;
   };
 
+  const isAgentActive = (issue: LinearIssue): boolean => {
+    if (!issue.state || mapStateToColumn(issue.state.type) !== "in-progress") return false;
+    const assignee = getAssigneeName(issue);
+    return !!assignee && (assignee.includes("Chuck") || assignee.includes("Code Agent"));
+  };
+
   const issuesByColumn = (colId: ColumnId) =>
     issues.filter(i => i.state && mapStateToColumn(i.state.type) === colId);
 
@@ -291,6 +297,12 @@ export default function TasksPage() {
                 <col.icon size={16} className={col.color} />
                 <h3 className="text-sm font-medium text-foreground">{col.label}</h3>
                 <span className="text-xs text-muted bg-border/50 px-1.5 py-0.5 rounded">{colIssues.length}</span>
+                {col.id === "in-progress" && colIssues.some(i => isAgentActive(i)) && (
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-success opacity-60 animate-dot-pulse" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-success" />
+                  </span>
+                )}
               </div>
               <div className="space-y-2">
                 {colIssues.map(issue => {
@@ -301,13 +313,21 @@ export default function TasksPage() {
                       key={issue.id}
                       onClick={() => setSelectedIssue(issue)}
                       className={`w-full text-left bg-card border rounded-lg p-4 hover:border-coreconx/40 transition-colors cursor-pointer ${isUpdating ? "opacity-50" : ""} ${
-                        col.id === "in-progress" && getAssigneeName(issue)?.includes("Chuck")
-                          ? "border-coreconx/60 shadow-[0_0_12px_rgba(59,130,246,0.25)] ring-1 ring-coreconx/30 animate-pulse-subtle"
+                        isAgentActive(issue)
+                          ? "border-coreconx-light/60 ring-1 ring-coreconx-light/30 animate-pulse-glow"
                           : "border-border"
                       }`}
                     >
                       <div className="flex items-start justify-between">
-                        <span className="text-xs font-mono text-muted">{issue.identifier}</span>
+                        <span className="text-xs font-mono text-muted flex items-center gap-1.5">
+                          {isAgentActive(issue) && (
+                            <span className="relative flex h-2 w-2">
+                              <span className="absolute inline-flex h-full w-full rounded-full bg-coreconx-light opacity-75 animate-dot-pulse" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-coreconx-light" />
+                            </span>
+                          )}
+                          {issue.identifier}
+                        </span>
                         <div className="relative" ref={priorityDropdown === issue.id ? priorityDropdownRef : undefined}>
                           <button
                             onClick={(e) => { e.stopPropagation(); setPriorityDropdown(priorityDropdown === issue.id ? null : issue.id); }}
