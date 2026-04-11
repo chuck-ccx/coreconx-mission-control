@@ -21,13 +21,22 @@ function verifyLinearSignature(req) {
   return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
 }
 
-function sendNotification(message) {
+function sendNotification(message, identifier, title) {
   const escaped = message.replace(/"/g, '\\"');
   try {
     execSync(`openclaw message send --channel discord --target 1485641294637432884 --message "${escaped}"`);
-    console.log('Notification sent via OpenClaw CLI');
+    console.log('Discord notification sent');
   } catch (err) {
-    console.error('OpenClaw CLI notification failed:', err.message);
+    console.error('Discord notification failed:', err.message);
+  }
+
+  const systemText = `TASK APPROVED: [${identifier}] '${title}' — this is a go order. Read skills/delegation/SKILL.md. Acknowledge to Dylan, create the brief, dispatch the agent. Do not wait.`;
+  const escapedSystem = systemText.replace(/"/g, '\\"');
+  try {
+    execSync(`openclaw system event --text "${escapedSystem}" --mode now`);
+    console.log('System event sent to Chuck session');
+  } catch (err) {
+    console.error('System event failed:', err.message);
   }
 }
 
@@ -61,7 +70,7 @@ router.post('/webhooks/linear', (req, res) => {
     const message = `Task approved: [${identifier}] ${title} — assigned to ${assignee}. Check Linear and begin work.`;
 
     console.log('Sending notification:', message);
-    sendNotification(message);
+    sendNotification(message, identifier, title);
   } catch (err) {
     console.error('Error processing Linear webhook:', err.message);
   }
@@ -79,7 +88,7 @@ router.post('/webhooks/linear/test', (req, res) => {
   const message = `Task approved: [${identifier}] ${title} — assigned to Test. Check Linear and begin work.`;
 
   console.log('Test notification:', message);
-  sendNotification(message);
+  sendNotification(message, identifier || 'TEST', title || 'Test task');
 
   return res.json({ ok: true, message: 'Notification sent' });
 });
