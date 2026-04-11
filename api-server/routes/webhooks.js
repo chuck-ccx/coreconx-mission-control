@@ -11,13 +11,16 @@ function verifyLinearSignature(req) {
     return true;
   }
 
-  const signature = req.headers['x-linear-signature'];
+  const signature = req.headers['linear-signature'] || req.headers['x-linear-signature'];
   if (!signature) return false;
+
+  if (!req.rawBody) return false;
 
   const hmac = crypto.createHmac('sha256', secret);
   hmac.update(req.rawBody);
   const expected = hmac.digest('hex');
 
+  if (signature.length !== expected.length) return false;
   return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
 }
 
