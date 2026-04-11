@@ -139,6 +139,103 @@ router.get('/', (req, res) => {
   res.json(agents);
 });
 
+// GET /api/agents/work — active work tracking per agent
+router.get('/work', (req, res) => {
+  const repos = [
+    'chuck-ccx/coreconx-mobile',
+    'chuck-ccx/coreconx-mission-control',
+    'chuck-ccx/coreconx-web',
+  ];
+
+  // 1. Query Linear for active COR issues
+  let issues = [];
+  if (process.env.LINEAR_API_KEY) {
+    const result = linearQuery(`{
+      issues(
+        filter: {
+          team: { key: { eq: "COR" } }
+          state: { name: { in: ["Todo", "In Progress"] } }
+        }
+        first: 100
+      ) {
+        nodes {
+          identifier
+          title
+          state { name }
+          assignee { name }
+          updatedAt
+          url
+          labels { nodes { name } }
+        }
+      }
+    }`);
+    if (result?.data?.issues?.nodes) {
+      issues = result.data.issues.nodes;
+    }
+  }
+
+  // 2. Query GitHub PRs across repos
+  let allPRs = [];
+  for (const repo of repos) {
+    try {
+      const raw = execSync(
+        `/opt/homebrew/bin/gh pr list -R ${repo} --state all --limit 20 --json number,title,state,url,headRefName,updatedAt`,
+        { timeout: 15000, encoding: 'utf-8', env: { ...process.env, PATH: '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin' } }
+      );
+      if (raw.trim()) {
+        const prs = JSON.parse(raw.trim());
+        allPRs.push(...prs.map(pr => ({ ...pr, repo })));
+      }
+    } catch { /* repo may not exist or gh may fail */ }
+  }
+
+  // 3. Match PRs to issues by branch name containing task ID
+  function findPR(identifier) {
+    const id = identifier.toLowerCase();
+    return allPRs.find(pr => pr.headRefName?.toLowerCase().includes(id)) || null;
+  }
+
+  // 4. Determine agent from labels or assignee
+  function resolveAgent(issue) {
+    for (const label of (issue.labels?.nodes || [])) {
+      const match = label.name.match(/^Assigned:\s*(.+)/i);
+      if (match) {
+        return match[1].trim().toLowerCase().replace(/\s+agent$/i, '').replace(/\s+/g, '-');
+      }
+    }
+    const name = issue.assignee?.name;
+    if (!name) return 'unassigned';
+    if (/chuck/i.test(name)) return 'chuck';
+    return name.toLowerCase().replace(/\s+/g, '-');
+  }
+
+  // 5. Group tasks by agent
+  const agentMap = {};
+  for (const issue of issues) {
+    const agentId = resolveAgent(issue);
+    if (!agentMap[agentId]) agentMap[agentId] = { agentId, tasks: [] };
+
+    const pr = findPR(issue.identifier);
+    agentMap[agentId].tasks.push({
+      taskId: issue.identifier,
+      taskTitle: issue.title,
+      taskUrl: issue.url,
+      taskStatus: issue.state.name,
+      prNumber: pr?.number || null,
+      prUrl: pr?.url || null,
+      prState: pr?.state || null,
+      lastUpdate: pr?.updatedAt || issue.updatedAt,
+    });
+  }
+
+  // Sort tasks within each agent by lastUpdate descending
+  for (const agent of Object.values(agentMap)) {
+    agent.tasks.sort((a, b) => new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime());
+  }
+
+  res.json(Object.values(agentMap));
+});
+
 // Toggle agent on/off
 router.put('/:id/toggle', (req, res) => {
   const agentId = req.params.id;

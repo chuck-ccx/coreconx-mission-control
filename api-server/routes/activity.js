@@ -22,7 +22,7 @@ function gh(args) {
 
 // GET /api/activity/prs — GitHub PR status across CoreConX repos
 router.get('/prs', (req, res) => {
-  const repos = ['wundergunder/coreconx-web', 'chuck-ccx/coreconx-mission-control'];
+  const repos = ['chuck-ccx/coreconx-web', 'chuck-ccx/coreconx-mission-control'];
   const allPRs = [];
 
   for (const repo of repos) {
@@ -79,7 +79,7 @@ router.get('/feed', (req, res) => {
   }
 
   // Recent GitHub commits on main branches
-  const repos = ['wundergunder/coreconx-web', 'chuck-ccx/coreconx-mission-control'];
+  const repos = ['chuck-ccx/coreconx-web', 'chuck-ccx/coreconx-mission-control'];
   for (const repo of repos) {
     try {
       const raw = gh(`api repos/${repo}/commits?per_page=10 --jq '.[] | {sha: .sha, message: .commit.message, author: .commit.author.name, date: .commit.author.date}'`);
