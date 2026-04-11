@@ -12,6 +12,7 @@ import agentsRouter from './routes/agents.js';
 import brainRouter from './routes/brain.js';
 import activityRouter from './routes/activity.js';
 import miscRouter from './routes/misc.js';
+import webhooksRouter from './routes/webhooks.js';
 
 const REQUIRED_ENV = [
   'MC_API_TOKEN',
@@ -44,11 +45,14 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json());
+app.use(express.json({
+  verify: (req, _res, buf) => { req.rawBody = buf; },
+}));
 
 // ── Public routes (no auth) ──────────────────────────────────────
 app.use(authRouter);   // /auth/login
 app.use(healthRouter);  // /deploy, /health, /health/nightly-review, /api/health-monitor
+app.use(webhooksRouter); // /webhooks/linear
 
 // ── Auth middleware — all /api/* routes below require bearer token ─
 app.use('/api', authMiddleware);
