@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bot, Cpu, Activity, Zap, Loader2, Wifi, WifiOff, Heart, RefreshCw, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Bot, Cpu, Activity, Zap, Loader2, Wifi, WifiOff, Heart, RefreshCw, AlertTriangle, CheckCircle, XCircle, GitPullRequest, ExternalLink, Clock, Briefcase } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 interface Agent {
@@ -14,6 +14,22 @@ interface Agent {
   lastActive: string | null;
   techStack: string[];
   enabled: boolean;
+}
+
+interface AgentWorkTask {
+  taskId: string;
+  taskTitle: string;
+  taskUrl: string;
+  taskStatus: string;
+  prNumber: number | null;
+  prUrl: string | null;
+  prState: string | null;
+  lastUpdate: string;
+}
+
+interface AgentWork {
+  agentId: string;
+  tasks: AgentWorkTask[];
 }
 
 interface HealthCheck {
@@ -71,6 +87,7 @@ const techStack = [
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [activeWork, setActiveWork] = useState<AgentWork[]>([]);
   const [apiStatus, setApiStatus] = useState<ApiStatus | null>(null);
   const [healthCheck, setHealthCheck] = useState<HealthCheck | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
@@ -89,10 +106,12 @@ export default function AgentsPage() {
       apiFetch<ApiStatus>("/api/status"),
       apiFetch<Agent[]>("/api/agents"),
       apiFetch<HealthCheck>("/api/health-monitor"),
-    ]).then(([statusData, agentsData, healthData]) => {
+      apiFetch<AgentWork[]>("/api/agents/work"),
+    ]).then(([statusData, agentsData, healthData, workData]) => {
       if (statusData) setApiStatus(statusData);
       if (agentsData) setAgents(agentsData);
       if (healthData) setHealthCheck(healthData);
+      if (workData) setActiveWork(workData);
       setLoading(false);
     });
   }, []);
@@ -109,6 +128,33 @@ export default function AgentsPage() {
       );
     }
     setToggling(null);
+  };
+
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatRelativeTime = (dateStr: string) => {
+    const diff = now - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  };
+
+  const workStatusConfig: Record<string, { label: string; color: string }> = {
+    working: { label: "Working", color: "bg-info text-info" },
+    todo: { label: "Todo", color: "bg-muted text-muted" },
+    "pr-open": { label: "PR Open", color: "bg-warning text-warning" },
+    "in-review": { label: "In Review", color: "bg-coreconx text-coreconx-light" },
+    merged: { label: "Merged", color: "bg-success text-success" },
+    failed: { label: "Failed", color: "bg-danger text-danger" },
   };
 
   const formatUptime = (seconds: number) => {
@@ -224,6 +270,80 @@ export default function AgentsPage() {
           </div>
           );
         })}
+      </div>
+
+      {/* Active Work */}
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <Briefcase size={18} className="text-coreconx-light" />
+          Active Work
+        </h2>
+        {loading ? (
+          <div className="flex items-center gap-2 mt-3">
+            <Loader2 size={16} className="text-muted animate-spin" />
+            <span className="text-sm text-muted">Loading active work...</span>
+          </div>
+        ) : activeWork.length === 0 ? (
+          <p className="text-sm text-muted mt-3">No active work</p>
+        ) : (
+          <div className="mt-4 space-y-5">
+            {activeWork.map((agentWork) => (
+              <div key={agentWork.agentId}>
+                <h3 className="text-sm font-semibold text-foreground capitalize mb-2">
+                  {agentWork.agentId.replace(/-/g, " ")}
+                </h3>
+                <div className="space-y-2">
+                  {agentWork.tasks.map((task) => {
+                    const status = workStatusConfig[
+                      task.prState === "MERGED" ? "merged"
+                        : task.prState === "CLOSED" ? "failed"
+                        : task.prState === "OPEN" ? "pr-open"
+                        : task.taskStatus === "In Progress" ? "working"
+                        : "todo"
+                    ] || workStatusConfig.todo;
+                    return (
+                      <div
+                        key={task.taskId}
+                        className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background text-sm"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <a
+                            href={task.taskUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-foreground hover:text-coreconx-light transition-colors inline-flex items-center gap-1"
+                          >
+                            {task.taskId}
+                            <ExternalLink size={12} className="text-muted" />
+                          </a>
+                          <span className="text-muted ml-2 truncate">{task.taskTitle}</span>
+                        </div>
+                        <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full border ${status.color} bg-opacity-10 border-current`}>
+                          {status.label}
+                        </span>
+                        {task.prUrl && (
+                          <a
+                            href={task.prUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 text-muted hover:text-foreground transition-colors inline-flex items-center gap-1"
+                          >
+                            <GitPullRequest size={14} />
+                            <span className="text-xs">#{task.prNumber}</span>
+                          </a>
+                        )}
+                        <span className="shrink-0 text-xs text-muted inline-flex items-center gap-1">
+                          <Clock size={12} />
+                          {formatRelativeTime(task.lastUpdate)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Live Service Status */}
