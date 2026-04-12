@@ -59,11 +59,23 @@ body {
   background: var(--muted);
 }
 
-/* Active task pulse for Chuck's in-progress work */
+/* Active task pulse animation for in-progress tasks */
 @keyframes pulse-subtle {
-  0%, 100% { box-shadow: 0 0 12px rgba(10, 77, 44, 0.25); }
-  50% { box-shadow: 0 0 20px rgba(10, 77, 44, 0.45); }
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(10, 77, 44, 0.25), inset 0 0 0 1px rgba(10, 77, 44, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(10, 77, 44, 0.45), inset 0 0 0 1px rgba(10, 77, 44, 0.2);
+  }
 }
 .animate-pulse-subtle {
   animation: pulse-subtle 2.5s ease-in-out infinite;
+}
+
+/* Mobile-optimized pulse (reduce motion for better performance) */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-subtle {
+    animation: none;
+    box-shadow: 0 0 12px rgba(10, 77, 44, 0.25);
+  }
 }
