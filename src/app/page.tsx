@@ -21,6 +21,25 @@ interface Company {
   [key: string]: string;
 }
 
+interface ActivityEvent {
+  type: "task" | "commit";
+  id: string;
+  title: string;
+  status?: string;
+  timestamp: string;
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
 export default function Dashboard() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [apiOnline, setApiOnline] = useState(false);
@@ -29,14 +48,16 @@ export default function Dashboard() {
   const [sentCount, setSentCount] = useState(0);
   const [taskCount, setTaskCount] = useState(0);
   const [inboxCount, setInboxCount] = useState(0);
+  const [activity, setActivity] = useState<ActivityEvent[]>([]);
 
   useEffect(() => {
     async function load() {
-      const [crmData, sentData, inboxData, taskData] = await Promise.all([
+      const [crmData, sentData, inboxData, taskData, activityData] = await Promise.all([
         apiFetch<Company[]>("/api/crm/companies"),
         apiFetch<unknown[]>("/api/emails/sent"),
         apiFetch<unknown[]>("/api/emails/inbox"),
         apiFetch<unknown[]>("/api/tasks"),
+        apiFetch<ActivityEvent[]>("/api/activity/feed"),
       ]);
       if (crmData) {
         setCompanies(crmData);
@@ -45,6 +66,7 @@ export default function Dashboard() {
       if (sentData && Array.isArray(sentData)) setSentCount(sentData.length);
       if (inboxData && Array.isArray(inboxData)) setInboxCount(inboxData.length);
       if (taskData && Array.isArray(taskData)) setTaskCount(taskData.length);
+      if (activityData && Array.isArray(activityData)) setActivity(activityData.slice(0, 6));
       setLoading(false);
     }
     load();
@@ -165,22 +187,20 @@ export default function Dashboard() {
             Recent Activity
           </h2>
           <div className="mt-4 space-y-3">
-            {[
-              { action: "API server live on Tailscale", time: "Just now" },
-              { action: "Mission Control deployed to Netlify", time: "30m ago" },
-              { action: "Updated 21 legal docs", time: "1h ago" },
-              { action: "DKIM authentication verified", time: "2h ago" },
-              { action: "Email aliases configured", time: "2h ago" },
-              { action: "Founding partner campaign drafted", time: "3h ago" },
-            ].map((item, i) => (
+            {activity.length > 0 ? activity.map((item, i) => (
               <div key={i} className="flex items-start gap-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-coreconx-light mt-2" />
+                <div className={`w-1.5 h-1.5 rounded-full mt-2 ${item.type === "task" ? "bg-coreconx-light" : "bg-purple-400"}`} />
                 <div className="flex-1">
-                  <p className="text-sm text-foreground">{item.action}</p>
-                  <p className="text-xs text-muted">{item.time}</p>
+                  <p className="text-sm text-foreground">
+                    {item.type === "task" ? `[${item.id}] ${item.title}` : item.title}
+                    {item.status && <span className="text-xs text-muted ml-2">({item.status})</span>}
+                  </p>
+                  <p className="text-xs text-muted">{timeAgo(item.timestamp)}</p>
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="text-sm text-muted">No recent activity</p>
+            )}
           </div>
         </div>
       </div>
