@@ -26,7 +26,7 @@ router.get('/health-monitor', async (req, res) => {
 
 // ==================== Email Templates (Google Sheets) ====================
 
-const SHEET_ID = '1arbZpTV9DSVS8w-4FA8XhV59x_DWxpGIP1dI5vxX3ak';
+const SHEET_ID = process.env.CRM_SHEET_ID || '1arbZpTV9DSVS8w-4FA8XhV59x_DWxpGIP1dI5vxX3ak';
 const TEMPLATE_TABS = [
   { name: 'Onboarding', sheet: 'Tpl — Onboarding', icon: '📥', gid: '1728656310' },
   { name: 'Transactional', sheet: 'Tpl — Transactional', icon: '💳', gid: '304550879' },
@@ -79,7 +79,7 @@ router.get('/templates', (req, res) => {
 
 // ==================== Errors & Diagnostics (Google Sheets) ====================
 
-const ERRORS_SHEET_ID = '1arbZpTV9DSVS8w-4FA8XhV59x_DWxpGIP1dI5vxX3ak';
+const ERRORS_SHEET_ID = process.env.CRM_SHEET_ID || '1arbZpTV9DSVS8w-4FA8XhV59x_DWxpGIP1dI5vxX3ak';
 const ERRORS_TAB = 'Errors';
 
 router.get('/errors', (req, res) => {

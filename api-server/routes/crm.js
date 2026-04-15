@@ -5,7 +5,7 @@ import { authMiddleware } from './auth.js';
 
 const router = Router();
 
-const CRM_SHEET_ID = process.env.CRM_SHEET_ID;
+const CRM_SHEET_ID = process.env.CRM_SHEET_ID || '1arbZpTV9DSVS8w-4FA8XhV59x_DWxpGIP1dI5vxX3ak';
 
 function filterEmptyRows(rows) {
   if (!rows) return rows;
