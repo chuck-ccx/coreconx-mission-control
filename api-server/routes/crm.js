@@ -4,6 +4,16 @@ import { gog, supabase } from '../helpers.js';
 
 const router = Router();
 
+const CRM_SHEET_ID = process.env.CRM_SHEET_ID;
+
+function filterEmptyRows(rows) {
+  if (!rows) return rows;
+  return rows.filter(row => {
+    const firstVal = Object.values(row)[0];
+    return firstVal && firstVal.trim() !== '';
+  });
+}
+
 function parseCSV(text) {
   const lines = [];
   let current = '';
@@ -51,6 +61,7 @@ function getSheetData(sheetId, range) {
       headers.forEach((h, i) => { obj[h.trim()] = (cols[i] || '').trim(); });
       return obj;
     });
+    return filterEmptyRows(rows);
   }
   // Fallback 1: JSON cache files (refreshed by cron/script)
   const cacheMap = {
@@ -61,7 +72,7 @@ function getSheetData(sheetId, range) {
   if (cacheFile) {
     console.log(`Sheets API failed for ${range}, using cache fallback...`);
     const cached = readCache(cacheFile);
-    if (cached !== null) return cached;
+    if (cached !== null) return filterEmptyRows(cached);
   }
   // Fallback 2: CSV export via Drive API
   console.log(`Cache miss for ${range}, trying CSV export fallback...`);
@@ -78,7 +89,7 @@ function getSheetData(sheetId, range) {
       const obj = {};
       headers.forEach((h, i) => { obj[h.trim()] = (cols[i] || '').trim(); });
       return obj;
-    });
+    }).filter(row => Object.values(row)[0]);
   } catch (e) {
     console.error(`CSV fallback error: ${e.message}`);
     return null;
@@ -86,22 +97,19 @@ function getSheetData(sheetId, range) {
 }
 
 router.get('/companies', (req, res) => {
-  const sheetId = '1arbZpTV9DSVS8w-4FA8XhV59x_DWxpGIP1dI5vxX3ak';
-  const data = getSheetData(sheetId, 'Companies!A1:Z100');
+  const data = getSheetData(CRM_SHEET_ID, 'Companies!A1:Z100');
   if (data === null) return res.status(500).json({ error: 'Failed to fetch CRM data' });
   res.json(data);
 });
 
 router.get('/contacts', (req, res) => {
-  const sheetId = '1arbZpTV9DSVS8w-4FA8XhV59x_DWxpGIP1dI5vxX3ak';
-  const data = getSheetData(sheetId, 'Contacts!A1:Z100');
+  const data = getSheetData(CRM_SHEET_ID, 'Contacts!A1:Z100');
   if (data === null) return res.status(500).json({ error: 'Failed to fetch contacts' });
   res.json(data);
 });
 
 router.get('/pipeline', (req, res) => {
-  const sheetId = '1arbZpTV9DSVS8w-4FA8XhV59x_DWxpGIP1dI5vxX3ak';
-  const raw = gog(`sheets get ${sheetId} "Pipeline!A1:Z100" -p`);
+  const raw = gog(`sheets get ${CRM_SHEET_ID} "Pipeline!A1:Z100" -p`);
   if (!raw) return res.status(500).json({ error: 'Failed to fetch pipeline' });
 
   const lines = raw.split('\n').filter(l => l.trim());
@@ -129,7 +137,7 @@ router.get('/supabase/companies', async (req, res) => {
   res.json(data);
 });
 
-router.post('/supabase/companies', async (req, res) => {
+router.post('/supabase/companies', requireApiKey, async (req, res) => {
   const { name, website, province_state, country, city, num_rigs, specialties, size, lead_status, lead_score, priority, notes, recent_intel } = req.body;
   if (!name) return res.status(400).json({ error: 'Company name is required' });
   const { data, error } = await supabase
@@ -141,7 +149,7 @@ router.post('/supabase/companies', async (req, res) => {
   res.json(data);
 });
 
-router.patch('/supabase/companies/:id', async (req, res) => {
+router.patch('/supabase/companies/:id', requireApiKey, async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   delete updates.id;
@@ -164,7 +172,7 @@ router.get('/supabase/contacts', async (req, res) => {
   res.json(data);
 });
 
-router.post('/supabase/contacts', async (req, res) => {
+router.post('/supabase/contacts', requireApiKey, async (req, res) => {
   const { full_name, email, company_name, phone, role } = req.body;
   if (!full_name) return res.status(400).json({ error: 'Full name is required' });
   const { data, error } = await supabase
@@ -176,7 +184,7 @@ router.post('/supabase/contacts', async (req, res) => {
   res.json(data);
 });
 
-router.patch('/supabase/contacts/:id', async (req, res) => {
+router.patch('/supabase/contacts/:id', requireApiKey, async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   delete updates.id;
@@ -190,46 +198,46 @@ router.patch('/supabase/contacts/:id', async (req, res) => {
   res.json(data);
 });
 
-// ==================== CRM Documents (in-memory) ====================
+// ==================== CRM Documents (Supabase) ====================
 
-const DEFAULT_DOCS = [
-  { name: 'NDA (Non-Disclosure Agreement)', status: 'Not Sent', sentDate: null, signedDate: null },
-  { name: 'Service Agreement', status: 'Not Sent', sentDate: null, signedDate: null },
-  { name: 'Master Service Agreement (MSA)', status: 'Not Sent', sentDate: null, signedDate: null },
-];
-
-const documentsStore = new Map();
-
-function getCompanyDocs(companyName) {
-  if (!documentsStore.has(companyName)) {
-    documentsStore.set(companyName, DEFAULT_DOCS.map(d => ({ ...d })));
-  }
-  return documentsStore.get(companyName);
-}
-
-router.get('/documents/:companyName', (req, res) => {
-  const docs = getCompanyDocs(decodeURIComponent(req.params.companyName));
-  res.json(docs);
-});
-
-router.post('/documents/:companyName', (req, res) => {
-  const { name, status, sentDate, signedDate } = req.body;
-  if (!name) return res.status(400).json({ error: 'Document name is required' });
-  const docs = getCompanyDocs(decodeURIComponent(req.params.companyName));
-  docs.push({ name, status: status || 'Not Sent', sentDate: sentDate || null, signedDate: signedDate || null });
-  res.json(docs);
-});
-
-router.patch('/documents/:companyName/:docIndex', (req, res) => {
+router.get('/documents/:companyName', async (req, res) => {
   const companyName = decodeURIComponent(req.params.companyName);
-  const idx = parseInt(req.params.docIndex);
-  const docs = getCompanyDocs(companyName);
-  if (idx < 0 || idx >= docs.length) return res.status(404).json({ error: 'Document not found' });
-  const { status, sentDate, signedDate } = req.body;
-  if (status) docs[idx].status = status;
-  if (sentDate !== undefined) docs[idx].sentDate = sentDate;
-  if (signedDate !== undefined) docs[idx].signedDate = signedDate;
-  res.json(docs);
+  const { data, error } = await supabase
+    .from('crm_documents')
+    .select('*')
+    .eq('company_name', companyName)
+    .order('created_at');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+router.post('/documents/:companyName', requireApiKey, async (req, res) => {
+  const companyName = decodeURIComponent(req.params.companyName);
+  const { name, status, sent_date, signed_date } = req.body;
+  if (!name) return res.status(400).json({ error: 'Document name is required' });
+  const { data, error } = await supabase
+    .from('crm_documents')
+    .insert({ company_name: companyName, name, status: status || 'Not Sent', sent_date: sent_date || null, signed_date: signed_date || null })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+router.patch('/documents/:companyName/:docId', requireApiKey, async (req, res) => {
+  const docId = req.params.docId;
+  const updates = {};
+  if (req.body.status !== undefined) updates.status = req.body.status;
+  if (req.body.sent_date !== undefined) updates.sent_date = req.body.sent_date;
+  if (req.body.signed_date !== undefined) updates.signed_date = req.body.signed_date;
+  const { data, error } = await supabase
+    .from('crm_documents')
+    .update(updates)
+    .eq('id', docId)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
 export default router;
