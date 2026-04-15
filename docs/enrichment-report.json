@@ -1,0 +1,465 @@
+{
+  "timestamp": "2026-04-15T17:33:07.911Z",
+  "summary": {
+    "total_companies": 29,
+    "companies_with_emails": 17,
+    "companies_without_emails": 12,
+    "total_unique_emails": 18,
+    "companies_needing_research": [
+      {
+        "idx": 7,
+        "company": "Team Drilling LP"
+      },
+      {
+        "idx": 10,
+        "company": "Rodren Drilling"
+      },
+      {
+        "idx": 12,
+        "company": "Dorado Drilling"
+      },
+      {
+        "idx": 15,
+        "company": "More Core Diamond Drilling"
+      },
+      {
+        "idx": 19,
+        "company": "West Core Drilling"
+      },
+      {
+        "idx": 21,
+        "company": "EDGE Drilling"
+      },
+      {
+        "idx": 22,
+        "company": "Mt Magnet Drilling"
+      },
+      {
+        "idx": 23,
+        "company": "Ranger Drilling"
+      },
+      {
+        "idx": 26,
+        "company": "Core Drilling Services"
+      },
+      {
+        "idx": 27,
+        "company": "Precision Drilling Australia"
+      },
+      {
+        "idx": 28,
+        "company": "Cyr Drilling International"
+      },
+      {
+        "idx": 29,
+        "company": "Techline Alaska"
+      }
+    ]
+  },
+  "enriched_data": [
+    {
+      "company": "Hardrock Diamond Drilling",
+      "website": "hardrockdrilling.ca",
+      "location": "Penticton, BC, Canada",
+      "lead_status": "Qualified",
+      "contacts": [
+        {
+          "name": "Jordan",
+          "email": "jordan@hardrockdrilling.ca",
+          "title": "",
+          "phone": "(250) 460-0151",
+          "status": "documented"
+        }
+      ],
+      "total_emails": 1,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "Driftwood Diamond Drilling",
+      "website": "driftwooddrilling.com",
+      "location": "Smithers, BC, Canada",
+      "lead_status": "Qualified",
+      "contacts": [
+        {
+          "name": "Kevin Goodson",
+          "email": "kevin@driftwooddrilling.com",
+          "title": "",
+          "phone": "250-877-2710",
+          "status": "documented"
+        }
+      ],
+      "total_emails": 1,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "Radius Drilling",
+      "website": "radiusdrilling.com",
+      "location": "Prince George, BC, Canada",
+      "lead_status": "Research",
+      "contacts": [
+        {
+          "name": "Tony Harte",
+          "email": "tonyharte@gmail.com",
+          "title": "Contracts Manager",
+          "phone": "(250) 614-2195",
+          "status": "documented"
+        }
+      ],
+      "total_emails": 1,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "Omineca Diamond Drilling",
+      "website": "ominecadrilling.com",
+      "location": "Burns Lake, BC, Canada",
+      "lead_status": "Qualified",
+      "contacts": [
+        {
+          "name": "Tony",
+          "email": "tony@ominecadrilling.com",
+          "title": "",
+          "phone": "(250) 698-3745",
+          "status": "documented"
+        }
+      ],
+      "total_emails": 1,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "Platinum Diamond Drilling",
+      "website": "platinumdiamonddrilling.ca",
+      "location": "Winnipegosis, MB, Canada",
+      "lead_status": "Qualified",
+      "contacts": [
+        {
+          "name": "Steve Procyshyn",
+          "email": "steve@platinumdiamonddrilling.ca",
+          "title": "President",
+          "phone": "(204) 572-6601",
+          "status": "documented"
+        },
+        {
+          "name": "(Name TBD)",
+          "email": "dave@ominecadrilling.com",
+          "title": "(Role TBD)",
+          "phone": "",
+          "status": "extracted_from_notes"
+        }
+      ],
+      "total_emails": 2,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "Chibougamau Diamond Drilling",
+      "website": "chibougamaudrilling.ca",
+      "location": "Chibougamau, QC, Canada",
+      "lead_status": "Qualified",
+      "contacts": [
+        {
+          "name": "Steve Larouche",
+          "email": "chibougamau.drilling@sympatico.ca",
+          "title": "",
+          "phone": "418-748-3977",
+          "status": "documented"
+        }
+      ],
+      "total_emails": 1,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "Team Drilling LP",
+      "website": "https://www.teamdrilling.com/",
+      "location": "Saskatchewan, SK, Canada",
+      "lead_status": "Qualified",
+      "contacts": [],
+      "total_emails": 0,
+      "status": "NO_PUBLIC_EMAIL"
+    },
+    {
+      "company": "Orbit Garant Drilling",
+      "website": "https://orbitgarant.com/en/",
+      "location": "Val-d'Or, QC, Canada",
+      "lead_status": "Qualified",
+      "contacts": [
+        {
+          "name": "(Name TBD)",
+          "email": "info@orbitgarant.com",
+          "title": "(Role TBD)",
+          "phone": "",
+          "status": "extracted_from_notes"
+        }
+      ],
+      "total_emails": 1,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "Corexplore Drilling Services",
+      "website": "https://www.corexplore.com/",
+      "location": "Callander, ON, Canada",
+      "lead_status": "Qualified",
+      "contacts": [
+        {
+          "name": "(Name TBD)",
+          "email": "david.jones@corexplore.com",
+          "title": "(Role TBD)",
+          "phone": "",
+          "status": "extracted_from_notes"
+        }
+      ],
+      "total_emails": 1,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "Rodren Drilling",
+      "website": "https://www.rodrendrilling.com/",
+      "location": "Winnipeg, MB, Canada",
+      "lead_status": "Qualified",
+      "contacts": [],
+      "total_emails": 0,
+      "status": "NO_PUBLIC_EMAIL"
+    },
+    {
+      "company": "Diafor",
+      "website": "https://diafor.ca/en/",
+      "location": "Malartic, QC, Canada",
+      "lead_status": "Qualified",
+      "contacts": [
+        {
+          "name": "(Name TBD)",
+          "email": "mathieu@diafor.ca",
+          "title": "(Role TBD)",
+          "phone": "",
+          "status": "extracted_from_notes"
+        }
+      ],
+      "total_emails": 1,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "Dorado Drilling",
+      "website": "doradodrilling.com",
+      "location": "Smithers, BC, Canada",
+      "lead_status": "Qualified",
+      "contacts": [],
+      "total_emails": 0,
+      "status": "NO_PUBLIC_EMAIL"
+    },
+    {
+      "company": "Hy-Torque Drilling",
+      "website": "hytorquedrilling.com",
+      "location": "Stewart, BC, Canada",
+      "lead_status": "Qualified",
+      "contacts": [
+        {
+          "name": "(Name TBD)",
+          "email": "info@hytorquedrilling.com",
+          "title": "(Role TBD)",
+          "phone": "",
+          "status": "extracted_from_notes"
+        }
+      ],
+      "total_emails": 1,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "HELM Diamond Drilling",
+      "website": "helmdiamonddrilling.ca",
+      "location": "Prince George, BC, Canada",
+      "lead_status": "Qualified",
+      "contacts": [
+        {
+          "name": "(Name TBD)",
+          "email": "Info@helmdiamonddrilling.ca",
+          "title": "(Role TBD)",
+          "phone": "",
+          "status": "extracted_from_notes"
+        }
+      ],
+      "total_emails": 1,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "More Core Diamond Drilling",
+      "website": "morecore.ca",
+      "location": "Stewart, BC, Canada",
+      "lead_status": "Qualified",
+      "contacts": [],
+      "total_emails": 0,
+      "status": "NO_PUBLIC_EMAIL"
+    },
+    {
+      "company": "Full Force Diamond Drilling",
+      "website": "fullforcedrilling.com",
+      "location": "Peachland, BC, Canada",
+      "lead_status": "Qualified",
+      "contacts": [
+        {
+          "name": "(Name TBD)",
+          "email": "danhill@fullforcedrilling.com",
+          "title": "(Role TBD)",
+          "phone": "",
+          "status": "extracted_from_notes"
+        }
+      ],
+      "total_emails": 1,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "Vital Drilling Services",
+      "website": "vitaldrilling.ca",
+      "location": "Val Caron, ON, Canada",
+      "lead_status": "Qualified",
+      "contacts": [
+        {
+          "name": "(Name TBD)",
+          "email": "contactus@vitaldrilling.ca",
+          "title": "(Role TBD)",
+          "phone": "",
+          "status": "extracted_from_notes"
+        }
+      ],
+      "total_emails": 1,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "Forage RJLL",
+      "website": "rjll.ca",
+      "location": "Rouyn-Noranda, QC, Canada",
+      "lead_status": "Qualified",
+      "contacts": [
+        {
+          "name": "(Name TBD)",
+          "email": "relmoine@rjll.ca",
+          "title": "(Role TBD)",
+          "phone": "",
+          "status": "extracted_from_notes"
+        }
+      ],
+      "total_emails": 1,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "West Core Drilling",
+      "website": "westcore.com.au",
+      "location": "Perth, WA, Australia",
+      "lead_status": "Qualified",
+      "contacts": [],
+      "total_emails": 0,
+      "status": "NO_PUBLIC_EMAIL"
+    },
+    {
+      "company": "Westralian Diamond Drillers",
+      "website": "westraliandiamonddrillers.com.au",
+      "location": "Kalgoorlie, WA, Australia",
+      "lead_status": "Qualified",
+      "contacts": [
+        {
+          "name": "(Name TBD)",
+          "email": "admin@westraliandiamonddrillers.com.au",
+          "title": "(Role TBD)",
+          "phone": "",
+          "status": "extracted_from_notes"
+        }
+      ],
+      "total_emails": 1,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "EDGE Drilling",
+      "website": "edgedrilling.com.au",
+      "location": ", WA, Australia",
+      "lead_status": "Qualified",
+      "contacts": [],
+      "total_emails": 0,
+      "status": "NO_PUBLIC_EMAIL"
+    },
+    {
+      "company": "Mt Magnet Drilling",
+      "website": "mtmagnetdrilling.com.au",
+      "location": ", WA, Australia",
+      "lead_status": "Research",
+      "contacts": [],
+      "total_emails": 0,
+      "status": "NO_PUBLIC_EMAIL"
+    },
+    {
+      "company": "Ranger Drilling",
+      "website": "rangerdrilling.com.au",
+      "location": ", WA, Australia",
+      "lead_status": "Research",
+      "contacts": [],
+      "total_emails": 0,
+      "status": "NO_PUBLIC_EMAIL"
+    },
+    {
+      "company": "Wallis Drilling",
+      "website": "wallisdrilling.com.au",
+      "location": "Perth, WA, Australia",
+      "lead_status": "Qualified",
+      "contacts": [
+        {
+          "name": "(Name TBD)",
+          "email": "info@wallisdrilling.com.au",
+          "title": "(Role TBD)",
+          "phone": "",
+          "status": "extracted_from_notes"
+        }
+      ],
+      "total_emails": 1,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "Godbe Drilling",
+      "website": "godbedrilling.com",
+      "location": ", NV, USA",
+      "lead_status": "Qualified",
+      "contacts": [
+        {
+          "name": "(Name TBD)",
+          "email": "godbedrilling@gmail.com",
+          "title": "(Role TBD)",
+          "phone": "",
+          "status": "extracted_from_notes"
+        }
+      ],
+      "total_emails": 1,
+      "status": "HAS_EMAILS"
+    },
+    {
+      "company": "Core Drilling Services",
+      "website": "coredrilling.net.au",
+      "location": ", WA, Australia",
+      "lead_status": "Qualified",
+      "contacts": [],
+      "total_emails": 0,
+      "status": "NO_PUBLIC_EMAIL"
+    },
+    {
+      "company": "Precision Drilling Australia",
+      "website": "precisiondrillingaustralia.com.au",
+      "location": "Perth, WA, Australia",
+      "lead_status": "Qualified",
+      "contacts": [],
+      "total_emails": 0,
+      "status": "NO_PUBLIC_EMAIL"
+    },
+    {
+      "company": "Cyr Drilling International",
+      "website": "cyrdrilling.com",
+      "location": "Sunnyside, MB, Canada",
+      "lead_status": "Qualified",
+      "contacts": [],
+      "total_emails": 0,
+      "status": "NO_PUBLIC_EMAIL"
+    },
+    {
+      "company": "Techline Alaska",
+      "website": "techlinealaska.com",
+      "location": ", AK, USA",
+      "lead_status": "Disqualified",
+      "contacts": [],
+      "total_emails": 0,
+      "status": "NO_PUBLIC_EMAIL"
+    }
+  ]
+}
