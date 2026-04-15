@@ -21,6 +21,7 @@ const REQUIRED_ENV = [
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
   'LINEAR_API_KEY',
+  'CRM_SHEET_ID',
 ];
 
 const missing = REQUIRED_ENV.filter(v => !process.env[v]);

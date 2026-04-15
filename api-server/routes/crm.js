@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { readFileSync, existsSync } from 'fs';
 import { gog, supabase } from '../helpers.js';
+import { authMiddleware } from './auth.js';
 
 const router = Router();
 
@@ -55,7 +56,7 @@ function getSheetData(sheetId, range) {
     const lines = raw.split('\n').filter(l => l.trim());
     if (lines.length < 2) return [];
     const headers = lines[0].split('\t');
-    return lines.slice(1).map(line => {
+    const rows = lines.slice(1).map(line => {
       const cols = line.split('\t');
       const obj = {};
       headers.forEach((h, i) => { obj[h.trim()] = (cols[i] || '').trim(); });
@@ -82,14 +83,15 @@ function getSheetData(sheetId, range) {
   if (!pathMatch) return null;
   try {
     const csvText = readFileSync(pathMatch[1].trim(), 'utf-8');
-    const rows = parseCSV(csvText);
-    if (rows.length < 2) return [];
-    const headers = rows[0];
-    return rows.slice(1).map(cols => {
+    const csvRows = parseCSV(csvText);
+    if (csvRows.length < 2) return [];
+    const headers = csvRows[0];
+    const mapped = csvRows.slice(1).map(cols => {
       const obj = {};
       headers.forEach((h, i) => { obj[h.trim()] = (cols[i] || '').trim(); });
       return obj;
-    }).filter(row => Object.values(row)[0]);
+    });
+    return filterEmptyRows(mapped);
   } catch (e) {
     console.error(`CSV fallback error: ${e.message}`);
     return null;
@@ -123,7 +125,7 @@ router.get('/pipeline', (req, res) => {
     return obj;
   });
 
-  res.json(pipeline);
+  res.json(filterEmptyRows(pipeline));
 });
 
 // ==================== CRM via Supabase ====================
@@ -137,7 +139,7 @@ router.get('/supabase/companies', async (req, res) => {
   res.json(data);
 });
 
-router.post('/supabase/companies', requireApiKey, async (req, res) => {
+router.post('/supabase/companies', authMiddleware, async (req, res) => {
   const { name, website, province_state, country, city, num_rigs, specialties, size, lead_status, lead_score, priority, notes, recent_intel } = req.body;
   if (!name) return res.status(400).json({ error: 'Company name is required' });
   const { data, error } = await supabase
@@ -149,7 +151,7 @@ router.post('/supabase/companies', requireApiKey, async (req, res) => {
   res.json(data);
 });
 
-router.patch('/supabase/companies/:id', requireApiKey, async (req, res) => {
+router.patch('/supabase/companies/:id', authMiddleware, async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   delete updates.id;
@@ -172,7 +174,7 @@ router.get('/supabase/contacts', async (req, res) => {
   res.json(data);
 });
 
-router.post('/supabase/contacts', requireApiKey, async (req, res) => {
+router.post('/supabase/contacts', authMiddleware, async (req, res) => {
   const { full_name, email, company_name, phone, role } = req.body;
   if (!full_name) return res.status(400).json({ error: 'Full name is required' });
   const { data, error } = await supabase
@@ -184,7 +186,7 @@ router.post('/supabase/contacts', requireApiKey, async (req, res) => {
   res.json(data);
 });
 
-router.patch('/supabase/contacts/:id', requireApiKey, async (req, res) => {
+router.patch('/supabase/contacts/:id', authMiddleware, async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   delete updates.id;
@@ -211,7 +213,7 @@ router.get('/documents/:companyName', async (req, res) => {
   res.json(data);
 });
 
-router.post('/documents/:companyName', requireApiKey, async (req, res) => {
+router.post('/documents/:companyName', authMiddleware, async (req, res) => {
   const companyName = decodeURIComponent(req.params.companyName);
   const { name, status, sent_date, signed_date } = req.body;
   if (!name) return res.status(400).json({ error: 'Document name is required' });
@@ -224,7 +226,7 @@ router.post('/documents/:companyName', requireApiKey, async (req, res) => {
   res.json(data);
 });
 
-router.patch('/documents/:companyName/:docId', requireApiKey, async (req, res) => {
+router.patch('/documents/:companyName/:docId', authMiddleware, async (req, res) => {
   const docId = req.params.docId;
   const updates = {};
   if (req.body.status !== undefined) updates.status = req.body.status;
