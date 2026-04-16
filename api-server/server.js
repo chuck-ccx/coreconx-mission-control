@@ -13,6 +13,7 @@ import brainRouter from './routes/brain.js';
 import activityRouter from './routes/activity.js';
 import miscRouter from './routes/misc.js';
 import webhooksRouter from './routes/webhooks.js';
+import emailDeliveryRouter from './routes/email-delivery.js';
 
 const REQUIRED_ENV = [
   'MC_API_TOKEN',
@@ -66,6 +67,7 @@ app.use('/api/calendar', calendarRouter);
 app.use('/api/agents', agentsRouter);
 app.use('/api/brain', brainRouter);
 app.use('/api/activity', activityRouter);
+app.use('/api/email', emailDeliveryRouter);
 app.use('/api', miscRouter);
 
 app.listen(PORT, '0.0.0.0', () => {
