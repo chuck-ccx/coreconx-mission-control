@@ -140,11 +140,11 @@ router.get('/supabase/companies', async (req, res) => {
 });
 
 router.post('/supabase/companies', authMiddleware, async (req, res) => {
-  const { name, website, province_state, country, city, num_rigs, specialties, size, lead_status, lead_score, priority, notes, recent_intel } = req.body;
+  const { name, website, province_state, country, city, num_rigs, specialties, size, lead_status, lead_score, priority, notes, recent_intel, pipeline_stage, deal_value } = req.body;
   if (!name) return res.status(400).json({ error: 'Company name is required' });
   const { data, error } = await supabase
     .from('companies')
-    .insert({ name, website, province_state, country, city, num_rigs: num_rigs || null, specialties, size, lead_status: lead_status || 'Research', lead_score: lead_score || 0, priority, notes, recent_intel })
+    .insert({ name, website, province_state, country, city, num_rigs: num_rigs || null, specialties, size, lead_status: lead_status || 'Research', lead_score: lead_score || 0, priority, notes, recent_intel, pipeline_stage: pipeline_stage || 'Lead', deal_value: deal_value || null })
     .select()
     .single();
   if (error) return res.status(500).json({ error: error.message });

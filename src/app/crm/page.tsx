@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { Users, Search, ExternalLink, MapPin, Mail, FileText, Plus, X, Pencil } from "lucide-react";
+import { Users, Search, ExternalLink, MapPin, Mail, FileText, Plus, X, Pencil, LayoutGrid, Table, DollarSign, ChevronDown } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { useRealtime } from "@/lib/use-realtime";
@@ -21,6 +21,8 @@ interface Company {
   "Priority (H/M/L)": string;
   Notes: string;
   "Recent Intel": string;
+  "Pipeline Stage": string;
+  "Deal Value": string;
   _supabase_id?: string;
   [key: string]: string | undefined;
 }
@@ -52,13 +54,25 @@ const statusColors: Record<string, string> = {
 };
 
 const LEAD_STATUSES = ["Research", "Cold Outreach", "Warm", "Demo", "Customer", "Lost"];
+const PIPELINE_STAGES = ["Lead", "Qualified", "Demo Scheduled", "Proposal Sent", "Negotiation", "Closed Won", "Closed Lost"];
 const SIZES = ["S", "M", "L"];
 const PRIORITIES = ["H", "M", "L"];
+
+const pipelineColors: Record<string, string> = {
+  Lead: "bg-info/20 text-info border-info/30",
+  Qualified: "bg-coreconx/20 text-coreconx-light border-coreconx/30",
+  "Demo Scheduled": "bg-accent-light/20 text-accent-light border-accent-light/30",
+  "Proposal Sent": "bg-warning/20 text-warning border-warning/30",
+  Negotiation: "bg-coreconx/30 text-coreconx-light border-coreconx/40",
+  "Closed Won": "bg-success/20 text-success border-success/30",
+  "Closed Lost": "bg-danger/20 text-danger border-danger/30",
+};
 
 const emptyCompanyForm = {
   name: "", website: "", province_state: "", country: "", city: "",
   num_rigs: "", specialties: "", size: "", lead_status: "Research",
   lead_score: "0", priority: "", notes: "", recent_intel: "",
+  pipeline_stage: "Lead", deal_value: "",
 };
 
 const emptyContactForm = {
@@ -84,6 +98,8 @@ export default function CRMPage() {
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [view, setView] = useState<"table" | "pipeline">("table");
+  const [stageDropdown, setStageDropdown] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     // Try Supabase first for companies, fall back to Sheets
@@ -107,13 +123,21 @@ export default function CRMPage() {
         "Priority (H/M/L)": (c.priority as string) || "",
         Notes: (c.notes as string) || "",
         "Recent Intel": (c.recent_intel as string) || "",
+        "Pipeline Stage": (c.pipeline_stage as string) || "Lead",
+        "Deal Value": String(c.deal_value ?? ""),
         _supabase_id: String(c.id ?? ""),
       }));
       setCompanies(mapped);
       setDataSource("supabase");
     } else {
       const compData = await apiFetch<Company[]>("/api/crm/companies");
-      if (compData) setCompanies(compData);
+      if (compData) {
+        setCompanies(compData.map(c => ({
+          ...c,
+          "Pipeline Stage": c["Pipeline Stage"] || "Lead",
+          "Deal Value": c["Deal Value"] || "",
+        })));
+      }
       setDataSource("sheets");
     }
 
@@ -214,6 +238,8 @@ export default function CRMPage() {
       priority: company["Priority (H/M/L)"],
       notes: company.Notes,
       recent_intel: company["Recent Intel"],
+      pipeline_stage: company["Pipeline Stage"] || "Lead",
+      deal_value: company["Deal Value"] || "",
     });
     setEditingCompanyId(company._supabase_id || null);
     setCompanyModal("edit");
@@ -225,6 +251,7 @@ export default function CRMPage() {
       ...companyForm,
       num_rigs: companyForm.num_rigs ? parseInt(companyForm.num_rigs) || null : null,
       lead_score: parseInt(companyForm.lead_score) || 0,
+      deal_value: companyForm.deal_value ? parseFloat(companyForm.deal_value) || null : null,
     };
 
     if (companyModal === "edit" && editingCompanyId) {
@@ -280,6 +307,16 @@ export default function CRMPage() {
 
     setSaving(false);
     setContactModal(null);
+    await loadData();
+  }
+
+  async function updatePipelineStage(company: Company, newStage: string) {
+    if (!company._supabase_id) return;
+    await apiFetch(`/api/crm/supabase/companies/${company._supabase_id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ pipeline_stage: newStage }),
+    });
+    setStageDropdown(null);
     await loadData();
   }
 
@@ -346,8 +383,30 @@ export default function CRMPage() {
         </div>
       </div>
 
+      {/* View Toggle */}
+      <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-1 w-fit">
+        <button
+          onClick={() => setView("table")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+            view === "table" ? "bg-coreconx text-white" : "text-muted hover:text-foreground"
+          }`}
+        >
+          <Table size={14} />
+          Table
+        </button>
+        <button
+          onClick={() => setView("pipeline")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+            view === "pipeline" ? "bg-coreconx text-white" : "text-muted hover:text-foreground"
+          }`}
+        >
+          <LayoutGrid size={14} />
+          Pipeline
+        </button>
+      </div>
+
       {/* Stats bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 sm:gap-4">
         {[
           { label: "Total Companies", value: companies.length },
           { label: "With Direct Email", value: withEmail.length },
@@ -368,6 +427,19 @@ export default function CRMPage() {
                 ).toFixed(1)
               : "—",
           },
+          {
+            label: "Active Deals",
+            value: companies.filter(
+              (c) => !["Lead", "Closed Won", "Closed Lost"].includes(c["Pipeline Stage"] || "Lead")
+            ).length,
+          },
+          {
+            label: "Pipeline Value",
+            value: `$${companies
+              .filter((c) => (c["Pipeline Stage"] || "Lead") !== "Closed Lost")
+              .reduce((sum, c) => sum + (parseFloat(c["Deal Value"] || "0") || 0), 0)
+              .toLocaleString()}`,
+          },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -381,8 +453,130 @@ export default function CRMPage() {
         ))}
       </div>
 
+      {/* Pipeline Kanban Board */}
+      {view === "pipeline" && (
+        <div className="overflow-x-auto pb-4">
+          <div className="flex gap-3 min-w-max">
+            {PIPELINE_STAGES.map((stage) => {
+              const stageCompanies = filtered.filter(
+                (c) => (c["Pipeline Stage"] || "Lead") === stage
+              );
+              const stageTotal = stageCompanies.reduce(
+                (sum, c) => sum + (parseFloat(c["Deal Value"] || "0") || 0),
+                0
+              );
+              return (
+                <div
+                  key={stage}
+                  className={`w-72 shrink-0 rounded-xl border ${
+                    pipelineColors[stage]?.split(" ")[2] || "border-border"
+                  } bg-card`}
+                >
+                  {/* Column header */}
+                  <div className={`px-4 py-3 rounded-t-xl border-b ${pipelineColors[stage]?.split(" ")[2] || "border-border"}`}>
+                    <div className="flex items-center justify-between">
+                      <h3 className={`text-sm font-semibold ${pipelineColors[stage]?.split(" ")[1] || "text-foreground"}`}>
+                        {stage}
+                      </h3>
+                      <span className="text-xs text-muted bg-background/50 px-2 py-0.5 rounded-full">
+                        {stageCompanies.length}
+                      </span>
+                    </div>
+                    {stageTotal > 0 && (
+                      <p className="text-xs text-muted mt-1 flex items-center gap-1">
+                        <DollarSign size={10} />
+                        {stageTotal.toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                  {/* Cards */}
+                  <div className="p-2 space-y-2 max-h-[60vh] overflow-y-auto">
+                    {stageCompanies.length === 0 && (
+                      <p className="text-xs text-muted text-center py-4">No deals</p>
+                    )}
+                    {stageCompanies.map((company) => {
+                      const contact = getContact(company["Company Name"]);
+                      const dealVal = parseFloat(company["Deal Value"] || "0") || 0;
+                      const isDropdownOpen = stageDropdown === company._supabase_id;
+                      return (
+                        <div
+                          key={company["Company Name"]}
+                          className="bg-background border border-border/50 rounded-lg p-3 space-y-2 hover:border-border transition-colors"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-foreground truncate">
+                                {company["Company Name"]}
+                              </p>
+                              {contact && (
+                                <p className="text-xs text-muted truncate mt-0.5">
+                                  {contact["Full Name"]}
+                                </p>
+                              )}
+                            </div>
+                            {company._supabase_id && (
+                              <button
+                                onClick={() => openEditCompany(company)}
+                                className="p-1 rounded text-muted hover:text-coreconx-light shrink-0"
+                              >
+                                <Pencil size={12} />
+                              </button>
+                            )}
+                          </div>
+                          {dealVal > 0 && (
+                            <p className="text-xs font-mono text-success flex items-center gap-1">
+                              <DollarSign size={10} />
+                              {dealVal.toLocaleString()}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${statusColors[company["Lead Status"]] || "bg-border text-muted"}`}>
+                              {company["Lead Status"]}
+                            </span>
+                            {parseInt(company["Lead Score (1-10)"] || "0") > 0 && (
+                              <span className="text-[10px] text-muted font-mono">
+                                Score: {company["Lead Score (1-10)"]}
+                              </span>
+                            )}
+                          </div>
+                          {/* Stage changer dropdown */}
+                          {company._supabase_id && (
+                            <div className="relative">
+                              <button
+                                onClick={() => setStageDropdown(isDropdownOpen ? null : (company._supabase_id || null))}
+                                className="flex items-center gap-1 text-xs text-muted hover:text-foreground transition-colors w-full justify-between bg-card/50 rounded px-2 py-1"
+                              >
+                                <span>Move to...</span>
+                                <ChevronDown size={12} className={isDropdownOpen ? "rotate-180 transition-transform" : "transition-transform"} />
+                              </button>
+                              {isDropdownOpen && (
+                                <div className="absolute z-50 top-full left-0 mt-1 w-full bg-card border border-border rounded-lg shadow-xl overflow-hidden">
+                                  {PIPELINE_STAGES.filter((s) => s !== stage).map((s) => (
+                                    <button
+                                      key={s}
+                                      onClick={() => updatePipelineStage(company, s)}
+                                      className={`w-full text-left px-3 py-2 text-xs hover:bg-card-hover transition-colors ${pipelineColors[s]?.split(" ")[1] || "text-foreground"}`}
+                                    >
+                                      {s}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Company Table */}
-      <div className="bg-card border border-border rounded-xl overflow-x-auto">
+      {view === "table" && <div className="bg-card border border-border rounded-xl overflow-x-auto">
         <table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-border bg-coreconx-dark/30">
@@ -593,7 +787,7 @@ export default function CRMPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </div>}
 
       {/* Rules */}
       <div className="bg-card/50 border border-border/50 rounded-lg p-4">
@@ -719,6 +913,28 @@ export default function CRMPage() {
                 <option value="">—</option>
                 {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Pipeline Stage</label>
+              <select
+                value={companyForm.pipeline_stage}
+                onChange={(e) => setCompanyForm({ ...companyForm, pipeline_stage: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              >
+                {PIPELINE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Deal Value ($)</label>
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                value={companyForm.deal_value}
+                onChange={(e) => setCompanyForm({ ...companyForm, deal_value: e.target.value })}
+                placeholder="0"
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-coreconx-light"
+              />
             </div>
           </div>
           <div>
