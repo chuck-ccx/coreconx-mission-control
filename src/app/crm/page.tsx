@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { Users, Search, ExternalLink, MapPin, Mail, FileText, Plus, X, Pencil } from "lucide-react";
+import { Users, Search, ExternalLink, MapPin, Mail, FileText, Plus, X, Pencil, LayoutGrid, Table2, DollarSign } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { useRealtime } from "@/lib/use-realtime";
@@ -75,6 +75,7 @@ export default function CRMPage() {
   const [docsLoading, setDocsLoading] = useState(false);
   const [newDocName, setNewDocName] = useState("");
   const [dataSource, setDataSource] = useState<"supabase" | "sheets">("supabase");
+  const [viewMode, setViewMode] = useState<"table" | "pipeline">("table");
 
   // Modal state
   const [companyModal, setCompanyModal] = useState<"add" | "edit" | null>(null);
@@ -381,8 +382,99 @@ export default function CRMPage() {
         ))}
       </div>
 
+      {/* View Toggle */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setViewMode("table")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            viewMode === "table" ? "bg-coreconx/20 text-coreconx-light" : "text-muted hover:text-foreground"
+          }`}
+        >
+          <Table2 size={14} /> Table
+        </button>
+        <button
+          onClick={() => setViewMode("pipeline")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            viewMode === "pipeline" ? "bg-coreconx/20 text-coreconx-light" : "text-muted hover:text-foreground"
+          }`}
+        >
+          <LayoutGrid size={14} /> Pipeline
+        </button>
+      </div>
+
+      {/* Pipeline View */}
+      {viewMode === "pipeline" && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 overflow-x-auto">
+          {LEAD_STATUSES.map((status) => {
+            const stageCompanies = filtered.filter((c) => c["Lead Status"] === status);
+            const stageValue = stageCompanies.reduce((sum, c) => {
+              const rigs = parseInt(c["# of Rigs"] || "0") || 0;
+              return sum + rigs * 150; // $150/rig/month estimate
+            }, 0);
+            return (
+              <div key={status} className="bg-card border border-border rounded-xl p-3 min-w-[200px]">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[status] || "bg-background text-muted"}`}>
+                      {status}
+                    </span>
+                    <p className="text-xs text-muted mt-1">{stageCompanies.length} companies</p>
+                  </div>
+                  {stageValue > 0 && (
+                    <span className="text-xs text-success flex items-center gap-0.5">
+                      <DollarSign size={10} />
+                      {(stageValue / 1000).toFixed(1)}k/mo
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  {stageCompanies.map((company) => {
+                    const contact = getContact(company["Company Name"]);
+                    const score = parseInt(company["Lead Score (1-10)"] || "0") || 0;
+                    return (
+                      <button
+                        key={company["Company Name"]}
+                        onClick={() => selectCompany(company["Company Name"])}
+                        className={`w-full text-left p-2.5 rounded-lg border transition-colors ${
+                          selectedCompany === company["Company Name"]
+                            ? "border-coreconx bg-coreconx/10"
+                            : "border-border hover:border-coreconx/50 bg-background"
+                        }`}
+                      >
+                        <p className="text-sm font-medium text-foreground truncate">{company["Company Name"]}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {company["Province/State"] && (
+                            <span className="text-[10px] text-muted flex items-center gap-0.5">
+                              <MapPin size={8} /> {company["Province/State"]}
+                            </span>
+                          )}
+                          {score > 0 && (
+                            <span className={`text-[10px] font-medium ${score >= 7 ? "text-success" : score >= 4 ? "text-warning" : "text-muted"}`}>
+                              Score: {score}
+                            </span>
+                          )}
+                        </div>
+                        {contact?.["Full Name"] && (
+                          <p className="text-[10px] text-muted mt-1 truncate">{contact["Full Name"]}</p>
+                        )}
+                        {company["# of Rigs"] && (
+                          <p className="text-[10px] text-muted">{company["# of Rigs"]} rigs</p>
+                        )}
+                      </button>
+                    );
+                  })}
+                  {stageCompanies.length === 0 && (
+                    <p className="text-xs text-muted text-center py-4">No companies</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Company Table */}
-      <div className="bg-card border border-border rounded-xl overflow-x-auto">
+      {viewMode === "table" && <div className="bg-card border border-border rounded-xl overflow-x-auto">
         <table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-border bg-coreconx-dark/30">
@@ -593,7 +685,7 @@ export default function CRMPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </div>}
 
       {/* Rules */}
       <div className="bg-card/50 border border-border/50 rounded-lg p-4">
