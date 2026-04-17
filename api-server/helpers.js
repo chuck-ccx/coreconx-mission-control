@@ -7,10 +7,10 @@ export const supabase = createClient(
 );
 
 // Helper: run gog command and return output
-export function gog(args) {
+export function gog(args, timeoutMs = 30000) {
   try {
     const result = execSync(`/opt/homebrew/bin/gog -a chuck@coreconx.group ${args}`, {
-      timeout: 30000,
+      timeout: timeoutMs,
       encoding: 'utf-8',
       env: { ...process.env, PATH: '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin' },
     });

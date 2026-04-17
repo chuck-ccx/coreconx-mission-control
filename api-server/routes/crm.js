@@ -75,10 +75,13 @@ function getSheetData(sheetId, range) {
     const cached = readCache(cacheFile);
     if (cached !== null) return filterEmptyRows(cached);
   }
-  // Fallback 2: CSV export via Drive API
+  // Fallback 2: CSV export via Drive API (with short timeout to prevent pagination loops)
   console.log(`Cache miss for ${range}, trying CSV export fallback...`);
-  const exportResult = gog(`sheets export ${sheetId} --format csv`);
-  if (!exportResult) return null;
+  const exportResult = gog(`sheets export ${sheetId} --format csv`, 10000);
+  if (!exportResult) {
+    console.log(`CSV export timed out or failed for ${range}, returning null`);
+    return null;
+  }
   const pathMatch = exportResult.match(/path\t(.+)/);
   if (!pathMatch) return null;
   try {
