@@ -1,465 +1,870 @@
 {
-  "timestamp": "2026-04-15T17:33:07.911Z",
-  "summary": {
-    "total_companies": 29,
-    "companies_with_emails": 17,
-    "companies_without_emails": 12,
-    "total_unique_emails": 18,
-    "companies_needing_research": [
-      {
-        "idx": 7,
-        "company": "Team Drilling LP"
-      },
-      {
-        "idx": 10,
-        "company": "Rodren Drilling"
-      },
-      {
-        "idx": 12,
-        "company": "Dorado Drilling"
-      },
-      {
-        "idx": 15,
-        "company": "More Core Diamond Drilling"
-      },
-      {
-        "idx": 19,
-        "company": "West Core Drilling"
-      },
-      {
-        "idx": 21,
-        "company": "EDGE Drilling"
-      },
-      {
-        "idx": 22,
-        "company": "Mt Magnet Drilling"
-      },
-      {
-        "idx": 23,
-        "company": "Ranger Drilling"
-      },
-      {
-        "idx": 26,
-        "company": "Core Drilling Services"
-      },
-      {
-        "idx": 27,
-        "company": "Precision Drilling Australia"
-      },
-      {
-        "idx": 28,
-        "company": "Cyr Drilling International"
-      },
-      {
-        "idx": 29,
-        "company": "Techline Alaska"
-      }
-    ]
+  "timestamp": "2026-04-19T12:22:36.996Z",
+  "mode": "write",
+  "before_valid_count": 31,
+  "after_valid_count": 22,
+  "api_calls": {
+    "hunter": 1,
+    "zerobounce": 31
   },
-  "enriched_data": [
+  "generic_only": [],
+  "newly_flagged_bad": [
     {
+      "row": 50,
+      "company": "Full Force Diamond Drilling",
+      "name": "Josh Hill",
+      "email": "josh@fullforcedrilling.com",
+      "zb_status": "invalid",
+      "zb_sub": "mailbox_not_found"
+    }
+  ],
+  "rows_written": 31,
+  "results": [
+    {
+      "sheet_row": 2,
       "company": "Hardrock Diamond Drilling",
-      "website": "hardrockdrilling.ca",
-      "location": "Penticton, BC, Canada",
-      "lead_status": "Qualified",
-      "contacts": [
-        {
-          "name": "Jordan",
-          "email": "jordan@hardrockdrilling.ca",
-          "title": "",
-          "phone": "(250) 460-0151",
-          "status": "documented"
-        }
-      ],
-      "total_emails": 1,
-      "status": "HAS_EMAILS"
+      "name": "Jordan Iannone",
+      "existing_email": "jordan@hardrockdrilling.ca",
+      "domain": "",
+      "action": "zb-uncertain",
+      "reason": null,
+      "zb_status": "catch-all",
+      "zb_sub": ""
     },
     {
+      "sheet_row": 3,
       "company": "Driftwood Diamond Drilling",
-      "website": "driftwooddrilling.com",
-      "location": "Smithers, BC, Canada",
-      "lead_status": "Qualified",
-      "contacts": [
-        {
-          "name": "Kevin Goodson",
-          "email": "kevin@driftwooddrilling.com",
-          "title": "",
-          "phone": "250-877-2710",
-          "status": "documented"
-        }
-      ],
-      "total_emails": 1,
-      "status": "HAS_EMAILS"
+      "name": "Kevin Goodson",
+      "existing_email": "kevin@driftwooddrilling.com",
+      "domain": "driftwooddrilling.com",
+      "action": "skip-already-bad",
+      "reason": "prior INVALID"
     },
     {
+      "sheet_row": 4,
       "company": "Radius Drilling",
-      "website": "radiusdrilling.com",
-      "location": "Prince George, BC, Canada",
-      "lead_status": "Research",
-      "contacts": [
-        {
-          "name": "Tony Harte",
-          "email": "tonyharte@gmail.com",
-          "title": "Contracts Manager",
-          "phone": "(250) 614-2195",
-          "status": "documented"
-        }
-      ],
-      "total_emails": 1,
-      "status": "HAS_EMAILS"
+      "name": "Tony Harte",
+      "existing_email": "tonyharte@gmail.com",
+      "domain": "radiusdrilling.com",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
     },
     {
+      "sheet_row": 5,
       "company": "Omineca Diamond Drilling",
-      "website": "ominecadrilling.com",
-      "location": "Burns Lake, BC, Canada",
-      "lead_status": "Qualified",
-      "contacts": [
-        {
-          "name": "Tony",
-          "email": "tony@ominecadrilling.com",
-          "title": "",
-          "phone": "(250) 698-3745",
-          "status": "documented"
-        }
-      ],
-      "total_emails": 1,
-      "status": "HAS_EMAILS"
+      "name": "Tony Clovis",
+      "existing_email": "tony@ominecadrilling.com",
+      "domain": "ominecadrilling.com",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
     },
     {
+      "sheet_row": 6,
       "company": "Platinum Diamond Drilling",
-      "website": "platinumdiamonddrilling.ca",
-      "location": "Winnipegosis, MB, Canada",
-      "lead_status": "Qualified",
-      "contacts": [
+      "name": "Steve Procyshyn",
+      "existing_email": "steve@platinumdiamonddrilling.ca",
+      "domain": "platinumdiamonddrilling.ca",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 7,
+      "company": "Corexplore Drilling Services",
+      "name": "David Jones",
+      "existing_email": "david.jones@corexplore.com",
+      "domain": "corexplore.com",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 8,
+      "company": "Corexplore Drilling Services",
+      "name": "Pierre Hurtubise",
+      "existing_email": "",
+      "domain": "corexplore.com",
+      "action": "not_found",
+      "reason": "no hunter match",
+      "candidates": [
+        "pierre@corexplore.com",
+        "pierre.hurtubise@corexplore.com",
+        "phurtubise@corexplore.com",
+        "pierreh@corexplore.com",
+        "pierre.h@corexplore.com",
+        "pierrehurtubise@corexplore.com",
+        "pierre_hurtubise@corexplore.com"
+      ],
+      "hunter_tried": [
         {
-          "name": "Steve Procyshyn",
-          "email": "steve@platinumdiamonddrilling.ca",
-          "title": "President",
-          "phone": "(204) 572-6601",
-          "status": "documented"
+          "email": "pierre@corexplore.com",
+          "status": "error:too_many_requests",
+          "score": 0
         },
         {
-          "name": "(Name TBD)",
-          "email": "dave@ominecadrilling.com",
-          "title": "(Role TBD)",
-          "phone": "",
-          "status": "extracted_from_notes"
-        }
-      ],
-      "total_emails": 2,
-      "status": "HAS_EMAILS"
-    },
-    {
-      "company": "Chibougamau Diamond Drilling",
-      "website": "chibougamaudrilling.ca",
-      "location": "Chibougamau, QC, Canada",
-      "lead_status": "Qualified",
-      "contacts": [
+          "email": "pierre.hurtubise@corexplore.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
         {
-          "name": "Steve Larouche",
-          "email": "chibougamau.drilling@sympatico.ca",
-          "title": "",
-          "phone": "418-748-3977",
-          "status": "documented"
-        }
-      ],
-      "total_emails": 1,
-      "status": "HAS_EMAILS"
-    },
-    {
-      "company": "Team Drilling LP",
-      "website": "https://www.teamdrilling.com/",
-      "location": "Saskatchewan, SK, Canada",
-      "lead_status": "Qualified",
-      "contacts": [],
-      "total_emails": 0,
-      "status": "NO_PUBLIC_EMAIL"
-    },
-    {
-      "company": "Orbit Garant Drilling",
-      "website": "https://orbitgarant.com/en/",
-      "location": "Val-d'Or, QC, Canada",
-      "lead_status": "Qualified",
-      "contacts": [
+          "email": "phurtubise@corexplore.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
         {
-          "name": "(Name TBD)",
-          "email": "info@orbitgarant.com",
-          "title": "(Role TBD)",
-          "phone": "",
-          "status": "extracted_from_notes"
-        }
-      ],
-      "total_emails": 1,
-      "status": "HAS_EMAILS"
-    },
-    {
-      "company": "Corexplore Drilling Services",
-      "website": "https://www.corexplore.com/",
-      "location": "Callander, ON, Canada",
-      "lead_status": "Qualified",
-      "contacts": [
+          "email": "pierreh@corexplore.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
         {
-          "name": "(Name TBD)",
-          "email": "david.jones@corexplore.com",
-          "title": "(Role TBD)",
-          "phone": "",
-          "status": "extracted_from_notes"
+          "email": "pierre.h@corexplore.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "pierrehurtubise@corexplore.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "pierre_hurtubise@corexplore.com",
+          "status": "plan_exhausted",
+          "score": 0
         }
-      ],
-      "total_emails": 1,
-      "status": "HAS_EMAILS"
+      ]
     },
     {
-      "company": "Rodren Drilling",
-      "website": "https://www.rodrendrilling.com/",
-      "location": "Winnipeg, MB, Canada",
-      "lead_status": "Qualified",
-      "contacts": [],
-      "total_emails": 0,
-      "status": "NO_PUBLIC_EMAIL"
-    },
-    {
+      "sheet_row": 9,
       "company": "Diafor",
-      "website": "https://diafor.ca/en/",
-      "location": "Malartic, QC, Canada",
-      "lead_status": "Qualified",
-      "contacts": [
-        {
-          "name": "(Name TBD)",
-          "email": "mathieu@diafor.ca",
-          "title": "(Role TBD)",
-          "phone": "",
-          "status": "extracted_from_notes"
-        }
-      ],
-      "total_emails": 1,
-      "status": "HAS_EMAILS"
+      "name": "Mathieu Dionne",
+      "existing_email": "mathieu@diafor.ca",
+      "domain": "diafor.ca",
+      "action": "skip-already-bad",
+      "reason": "prior INVALID"
     },
     {
-      "company": "Dorado Drilling",
-      "website": "doradodrilling.com",
-      "location": "Smithers, BC, Canada",
-      "lead_status": "Qualified",
-      "contacts": [],
-      "total_emails": 0,
-      "status": "NO_PUBLIC_EMAIL"
-    },
-    {
-      "company": "Hy-Torque Drilling",
-      "website": "hytorquedrilling.com",
-      "location": "Stewart, BC, Canada",
-      "lead_status": "Qualified",
-      "contacts": [
-        {
-          "name": "(Name TBD)",
-          "email": "info@hytorquedrilling.com",
-          "title": "(Role TBD)",
-          "phone": "",
-          "status": "extracted_from_notes"
-        }
-      ],
-      "total_emails": 1,
-      "status": "HAS_EMAILS"
-    },
-    {
+      "sheet_row": 10,
       "company": "HELM Diamond Drilling",
-      "website": "helmdiamonddrilling.ca",
-      "location": "Prince George, BC, Canada",
-      "lead_status": "Qualified",
-      "contacts": [
-        {
-          "name": "(Name TBD)",
-          "email": "Info@helmdiamonddrilling.ca",
-          "title": "(Role TBD)",
-          "phone": "",
-          "status": "extracted_from_notes"
-        }
-      ],
-      "total_emails": 1,
-      "status": "HAS_EMAILS"
+      "name": "Alan McPherson",
+      "existing_email": "alan@helmdiamonddrilling.ca",
+      "domain": "helmdiamonddrilling.ca",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
     },
     {
+      "sheet_row": 11,
       "company": "More Core Diamond Drilling",
-      "website": "morecore.ca",
-      "location": "Stewart, BC, Canada",
-      "lead_status": "Qualified",
-      "contacts": [],
-      "total_emails": 0,
-      "status": "NO_PUBLIC_EMAIL"
+      "name": "Sean Pownall",
+      "existing_email": "sean@morecore.ca",
+      "domain": "",
+      "action": "zb-uncertain",
+      "reason": null,
+      "zb_status": "catch-all",
+      "zb_sub": ""
     },
     {
+      "sheet_row": 12,
       "company": "Full Force Diamond Drilling",
-      "website": "fullforcedrilling.com",
-      "location": "Peachland, BC, Canada",
-      "lead_status": "Qualified",
-      "contacts": [
-        {
-          "name": "(Name TBD)",
-          "email": "danhill@fullforcedrilling.com",
-          "title": "(Role TBD)",
-          "phone": "",
-          "status": "extracted_from_notes"
-        }
-      ],
-      "total_emails": 1,
-      "status": "HAS_EMAILS"
+      "name": "Dan Hill",
+      "existing_email": "danhill@fullforcedrilling.com",
+      "domain": "fullforcedrilling.com",
+      "action": "skip-already-bad",
+      "reason": "prior INVALID"
     },
     {
-      "company": "Vital Drilling Services",
-      "website": "vitaldrilling.ca",
-      "location": "Val Caron, ON, Canada",
-      "lead_status": "Qualified",
-      "contacts": [
-        {
-          "name": "(Name TBD)",
-          "email": "contactus@vitaldrilling.ca",
-          "title": "(Role TBD)",
-          "phone": "",
-          "status": "extracted_from_notes"
-        }
-      ],
-      "total_emails": 1,
-      "status": "HAS_EMAILS"
+      "sheet_row": 16,
+      "company": "Team Drilling LP",
+      "name": "Al Lamy",
+      "existing_email": "alamy@teamdrilling.com",
+      "domain": "teamdrilling.com",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
     },
     {
-      "company": "Forage RJLL",
-      "website": "rjll.ca",
-      "location": "Rouyn-Noranda, QC, Canada",
-      "lead_status": "Qualified",
-      "contacts": [
-        {
-          "name": "(Name TBD)",
-          "email": "relmoine@rjll.ca",
-          "title": "(Role TBD)",
-          "phone": "",
-          "status": "extracted_from_notes"
-        }
-      ],
-      "total_emails": 1,
-      "status": "HAS_EMAILS"
+      "sheet_row": 17,
+      "company": "Dorado Drilling",
+      "name": "Garrett Herzig",
+      "existing_email": "garrett@doradodrilling.com",
+      "domain": "doradodrilling.com",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
     },
     {
-      "company": "West Core Drilling",
-      "website": "westcore.com.au",
-      "location": "Perth, WA, Australia",
-      "lead_status": "Qualified",
-      "contacts": [],
-      "total_emails": 0,
-      "status": "NO_PUBLIC_EMAIL"
-    },
-    {
-      "company": "Westralian Diamond Drillers",
-      "website": "westraliandiamonddrillers.com.au",
-      "location": "Kalgoorlie, WA, Australia",
-      "lead_status": "Qualified",
-      "contacts": [
-        {
-          "name": "(Name TBD)",
-          "email": "admin@westraliandiamonddrillers.com.au",
-          "title": "(Role TBD)",
-          "phone": "",
-          "status": "extracted_from_notes"
-        }
-      ],
-      "total_emails": 1,
-      "status": "HAS_EMAILS"
-    },
-    {
-      "company": "EDGE Drilling",
-      "website": "edgedrilling.com.au",
-      "location": ", WA, Australia",
-      "lead_status": "Qualified",
-      "contacts": [],
-      "total_emails": 0,
-      "status": "NO_PUBLIC_EMAIL"
-    },
-    {
-      "company": "Mt Magnet Drilling",
-      "website": "mtmagnetdrilling.com.au",
-      "location": ", WA, Australia",
-      "lead_status": "Research",
-      "contacts": [],
-      "total_emails": 0,
-      "status": "NO_PUBLIC_EMAIL"
-    },
-    {
-      "company": "Ranger Drilling",
-      "website": "rangerdrilling.com.au",
-      "location": ", WA, Australia",
-      "lead_status": "Research",
-      "contacts": [],
-      "total_emails": 0,
-      "status": "NO_PUBLIC_EMAIL"
-    },
-    {
-      "company": "Wallis Drilling",
-      "website": "wallisdrilling.com.au",
-      "location": "Perth, WA, Australia",
-      "lead_status": "Qualified",
-      "contacts": [
-        {
-          "name": "(Name TBD)",
-          "email": "info@wallisdrilling.com.au",
-          "title": "(Role TBD)",
-          "phone": "",
-          "status": "extracted_from_notes"
-        }
-      ],
-      "total_emails": 1,
-      "status": "HAS_EMAILS"
-    },
-    {
+      "sheet_row": 18,
       "company": "Godbe Drilling",
-      "website": "godbedrilling.com",
-      "location": ", NV, USA",
-      "lead_status": "Qualified",
-      "contacts": [
-        {
-          "name": "(Name TBD)",
-          "email": "godbedrilling@gmail.com",
-          "title": "(Role TBD)",
-          "phone": "",
-          "status": "extracted_from_notes"
-        }
-      ],
-      "total_emails": 1,
-      "status": "HAS_EMAILS"
+      "name": "John Godbe",
+      "existing_email": "godbedrilling@gmail.com",
+      "domain": "godbedrilling.com",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
     },
     {
-      "company": "Core Drilling Services",
-      "website": "coredrilling.net.au",
-      "location": ", WA, Australia",
-      "lead_status": "Qualified",
-      "contacts": [],
-      "total_emails": 0,
-      "status": "NO_PUBLIC_EMAIL"
-    },
-    {
-      "company": "Precision Drilling Australia",
-      "website": "precisiondrillingaustralia.com.au",
-      "location": "Perth, WA, Australia",
-      "lead_status": "Qualified",
-      "contacts": [],
-      "total_emails": 0,
-      "status": "NO_PUBLIC_EMAIL"
-    },
-    {
+      "sheet_row": 19,
       "company": "Cyr Drilling International",
-      "website": "cyrdrilling.com",
-      "location": "Sunnyside, MB, Canada",
-      "lead_status": "Qualified",
-      "contacts": [],
-      "total_emails": 0,
-      "status": "NO_PUBLIC_EMAIL"
+      "name": "Gordon Cyr",
+      "existing_email": "gord@cyrdrilling.com",
+      "domain": "",
+      "action": "zb-uncertain",
+      "reason": null,
+      "zb_status": "catch-all",
+      "zb_sub": ""
     },
     {
-      "company": "Techline Alaska",
-      "website": "techlinealaska.com",
-      "location": ", AK, USA",
-      "lead_status": "Disqualified",
-      "contacts": [],
-      "total_emails": 0,
-      "status": "NO_PUBLIC_EMAIL"
+      "sheet_row": 20,
+      "company": "Orbit Garant Drilling",
+      "name": "Gil Huard",
+      "existing_email": "gilbert.huard@orbitgarant.com",
+      "domain": "orbitgarant.com",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 21,
+      "company": "West Core Drilling",
+      "name": "Scott Eaton",
+      "existing_email": "scott@westcore.com.au",
+      "domain": "",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 22,
+      "company": "Rodren Drilling",
+      "name": "Rod Cyr",
+      "existing_email": "rod@rodrendrilling.com",
+      "domain": "rodrendrilling.com",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 23,
+      "company": "Forage RJLL",
+      "name": "Réal Lemoine",
+      "existing_email": "real@rjll.ca",
+      "domain": "rjll.ca",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 29,
+      "company": "Godbe Drilling",
+      "name": "John Godbe",
+      "existing_email": "godbedrilling@gmail.com",
+      "domain": "godbedrilling.com",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 30,
+      "company": "Cyr Drilling International",
+      "name": "Gordon Cyr",
+      "existing_email": "gordon@cyrdrilling.com",
+      "domain": "",
+      "action": "zb-uncertain",
+      "reason": null,
+      "zb_status": "catch-all",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 32,
+      "company": "Wallis Drilling",
+      "name": "Grant Wallis",
+      "existing_email": "grant.wallis@wallisdrilling.com.au",
+      "domain": "wallisdrilling.com.au",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 33,
+      "company": "Wallis Drilling",
+      "name": "Scott Eaton",
+      "existing_email": "info@wallisdrilling.com.au",
+      "domain": "wallisdrilling.com.au",
+      "action": "zb-uncertain",
+      "reason": null,
+      "zb_status": "do_not_mail",
+      "zb_sub": "role_based"
+    },
+    {
+      "sheet_row": 34,
+      "company": "West Core Drilling",
+      "name": "Scott",
+      "existing_email": "scott@westcore.com.au",
+      "domain": "",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 35,
+      "company": "Mt Magnet Drilling",
+      "name": "Paul Van Loenhout",
+      "existing_email": "paul@mtmagnetdrilling.com.au",
+      "domain": "mtmagnetdrilling.com.au",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 36,
+      "company": "Vital Drilling Services",
+      "name": "",
+      "existing_email": "contactus@vitaldrilling.ca",
+      "domain": "vitaldrilling.ca",
+      "action": "zb-uncertain",
+      "reason": null,
+      "zb_status": "do_not_mail",
+      "zb_sub": "role_based"
+    },
+    {
+      "sheet_row": 50,
+      "company": "Full Force Diamond Drilling",
+      "name": "Josh Hill",
+      "existing_email": "josh@fullforcedrilling.com",
+      "domain": "fullforcedrilling.com",
+      "action": "flag-bad",
+      "reason": null,
+      "zb_status": "invalid",
+      "zb_sub": "mailbox_not_found"
+    },
+    {
+      "sheet_row": 58,
+      "company": "Hy-Torque Drilling",
+      "name": "William J Ross",
+      "existing_email": "",
+      "domain": "hytorquedrilling.com",
+      "action": "not_found",
+      "reason": "no hunter match",
+      "candidates": [
+        "william@hytorquedrilling.com",
+        "william.ross@hytorquedrilling.com",
+        "wross@hytorquedrilling.com",
+        "williamr@hytorquedrilling.com",
+        "william.r@hytorquedrilling.com",
+        "williamross@hytorquedrilling.com",
+        "william_ross@hytorquedrilling.com"
+      ],
+      "hunter_tried": [
+        {
+          "email": "william@hytorquedrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "william.ross@hytorquedrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "wross@hytorquedrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "williamr@hytorquedrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "william.r@hytorquedrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "williamross@hytorquedrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "william_ross@hytorquedrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        }
+      ]
+    },
+    {
+      "sheet_row": 61,
+      "company": "Westralian Diamond Drillers",
+      "name": "David Bradley",
+      "existing_email": "",
+      "domain": "westraliandiamonddrillers.com.au",
+      "action": "not_found",
+      "reason": "no hunter match",
+      "candidates": [
+        "david@westraliandiamonddrillers.com.au",
+        "david.bradley@westraliandiamonddrillers.com.au",
+        "dbradley@westraliandiamonddrillers.com.au",
+        "davidb@westraliandiamonddrillers.com.au",
+        "david.b@westraliandiamonddrillers.com.au",
+        "davidbradley@westraliandiamonddrillers.com.au",
+        "david_bradley@westraliandiamonddrillers.com.au"
+      ],
+      "hunter_tried": [
+        {
+          "email": "david@westraliandiamonddrillers.com.au",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "david.bradley@westraliandiamonddrillers.com.au",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "dbradley@westraliandiamonddrillers.com.au",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "davidb@westraliandiamonddrillers.com.au",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "david.b@westraliandiamonddrillers.com.au",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "davidbradley@westraliandiamonddrillers.com.au",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "david_bradley@westraliandiamonddrillers.com.au",
+          "status": "plan_exhausted",
+          "score": 0
+        }
+      ]
+    },
+    {
+      "sheet_row": 64,
+      "company": "New Age Drilling",
+      "name": "Liz",
+      "existing_email": "liz@newagedrilling.com",
+      "domain": "newagedrilling.ca",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 69,
+      "company": "Dorado Drilling",
+      "name": "Sonny Lafreniere",
+      "existing_email": "",
+      "domain": "doradodrilling.com",
+      "action": "not_found",
+      "reason": "no hunter match",
+      "candidates": [
+        "sonny@doradodrilling.com",
+        "sonny.lafreniere@doradodrilling.com",
+        "slafreniere@doradodrilling.com",
+        "sonnyl@doradodrilling.com",
+        "sonny.l@doradodrilling.com",
+        "sonnylafreniere@doradodrilling.com",
+        "sonny_lafreniere@doradodrilling.com"
+      ],
+      "hunter_tried": [
+        {
+          "email": "sonny@doradodrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "sonny.lafreniere@doradodrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "slafreniere@doradodrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "sonnyl@doradodrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "sonny.l@doradodrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "sonnylafreniere@doradodrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "sonny_lafreniere@doradodrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        }
+      ]
+    },
+    {
+      "sheet_row": 70,
+      "company": "Rouillier Drilling",
+      "name": "Mario Rouillier",
+      "existing_email": "",
+      "domain": "foragesrouillier.com",
+      "action": "not_found",
+      "reason": "no hunter match",
+      "candidates": [
+        "mario@foragesrouillier.com",
+        "mario.rouillier@foragesrouillier.com",
+        "mrouillier@foragesrouillier.com",
+        "marior@foragesrouillier.com",
+        "mario.r@foragesrouillier.com",
+        "mariorouillier@foragesrouillier.com",
+        "mario_rouillier@foragesrouillier.com"
+      ],
+      "hunter_tried": [
+        {
+          "email": "mario@foragesrouillier.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "mario.rouillier@foragesrouillier.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "mrouillier@foragesrouillier.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "marior@foragesrouillier.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "mario.r@foragesrouillier.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "mariorouillier@foragesrouillier.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "mario_rouillier@foragesrouillier.com",
+          "status": "plan_exhausted",
+          "score": 0
+        }
+      ]
+    },
+    {
+      "sheet_row": 72,
+      "company": "Bryson Drilling",
+      "name": "Brian Bryson",
+      "existing_email": "",
+      "domain": "brysondrilling.ca",
+      "action": "not_found",
+      "reason": "no hunter match",
+      "candidates": [
+        "brian@brysondrilling.ca",
+        "brian.bryson@brysondrilling.ca",
+        "bbryson@brysondrilling.ca",
+        "brianb@brysondrilling.ca",
+        "brian.b@brysondrilling.ca",
+        "brianbryson@brysondrilling.ca",
+        "brian_bryson@brysondrilling.ca"
+      ],
+      "hunter_tried": [
+        {
+          "email": "brian@brysondrilling.ca",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "brian.bryson@brysondrilling.ca",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "bbryson@brysondrilling.ca",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "brianb@brysondrilling.ca",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "brian.b@brysondrilling.ca",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "brianbryson@brysondrilling.ca",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "brian_bryson@brysondrilling.ca",
+          "status": "plan_exhausted",
+          "score": 0
+        }
+      ]
+    },
+    {
+      "sheet_row": 75,
+      "company": "Northtech Drilling",
+      "name": "Stan Cochrane Jr.",
+      "existing_email": "",
+      "domain": "northtechdrilling.com",
+      "action": "not_found",
+      "reason": "no hunter match",
+      "candidates": [
+        "stan@northtechdrilling.com",
+        "stan.cochrane@northtechdrilling.com",
+        "scochrane@northtechdrilling.com",
+        "stanc@northtechdrilling.com",
+        "stan.c@northtechdrilling.com",
+        "stancochrane@northtechdrilling.com",
+        "stan_cochrane@northtechdrilling.com"
+      ],
+      "hunter_tried": [
+        {
+          "email": "stan@northtechdrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "stan.cochrane@northtechdrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "scochrane@northtechdrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "stanc@northtechdrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "stan.c@northtechdrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "stancochrane@northtechdrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "stan_cochrane@northtechdrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        }
+      ]
+    },
+    {
+      "sheet_row": 76,
+      "company": "Corewest Diamond Drilling",
+      "name": "Rick",
+      "existing_email": "",
+      "domain": "corewestdiamonddrilling.com",
+      "action": "not_found",
+      "reason": "no hunter match",
+      "candidates": [
+        "rick@corewestdiamonddrilling.com"
+      ],
+      "hunter_tried": [
+        {
+          "email": "rick@corewestdiamonddrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        }
+      ]
+    },
+    {
+      "sheet_row": 78,
+      "company": "Corewest Diamond Drilling",
+      "name": "Brian",
+      "existing_email": "",
+      "domain": "corewestdiamonddrilling.com",
+      "action": "not_found",
+      "reason": "no hunter match",
+      "candidates": [
+        "brian@corewestdiamonddrilling.com"
+      ],
+      "hunter_tried": [
+        {
+          "email": "brian@corewestdiamonddrilling.com",
+          "status": "plan_exhausted",
+          "score": 0
+        }
+      ]
+    },
+    {
+      "sheet_row": 80,
+      "company": "HELM Diamond Drilling",
+      "name": "Devlin Luck",
+      "existing_email": "devlin@helmdiamonddrilling.ca",
+      "domain": "helmdiamonddrilling.ca",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 81,
+      "company": "Vital Drilling Services",
+      "name": "Jeff McGlade",
+      "existing_email": "",
+      "domain": "vitaldrilling.ca",
+      "action": "not_found",
+      "reason": "no hunter match",
+      "candidates": [
+        "jeff@vitaldrilling.ca",
+        "jeff.mcglade@vitaldrilling.ca",
+        "jmcglade@vitaldrilling.ca",
+        "jeffm@vitaldrilling.ca",
+        "jeff.m@vitaldrilling.ca",
+        "jeffmcglade@vitaldrilling.ca",
+        "jeff_mcglade@vitaldrilling.ca"
+      ],
+      "hunter_tried": [
+        {
+          "email": "jeff@vitaldrilling.ca",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "jeff.mcglade@vitaldrilling.ca",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "jmcglade@vitaldrilling.ca",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "jeffm@vitaldrilling.ca",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "jeff.m@vitaldrilling.ca",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "jeffmcglade@vitaldrilling.ca",
+          "status": "plan_exhausted",
+          "score": 0
+        },
+        {
+          "email": "jeff_mcglade@vitaldrilling.ca",
+          "status": "plan_exhausted",
+          "score": 0
+        }
+      ]
+    },
+    {
+      "sheet_row": 86,
+      "company": "Superior Diamond Drilling",
+      "name": "Dan Johnston",
+      "existing_email": "dan.johnston@superiordiamonddrilling.com",
+      "domain": "superiordiamonddrilling.com",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 89,
+      "company": "Superior Diamond Drilling",
+      "name": "Thor Larson",
+      "existing_email": "thor.larson@superiordiamonddrilling.com",
+      "domain": "superiordiamonddrilling.com",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 90,
+      "company": "Wallis Drilling",
+      "name": "Kim Wallis",
+      "existing_email": "kim.wallis@wallisdrilling.com.au",
+      "domain": "wallisdrilling.com.au",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 91,
+      "company": "HELM Diamond Drilling",
+      "name": "Alec Fischer",
+      "existing_email": "alec@helmdiamonddrilling.ca",
+      "domain": "helmdiamonddrilling.ca",
+      "action": "reverified-valid",
+      "reason": null,
+      "zb_status": "valid",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 92,
+      "company": "Cyr Drilling International",
+      "name": "Greg Cyr",
+      "existing_email": "greg@cyrdrilling.com",
+      "domain": "",
+      "action": "zb-uncertain",
+      "reason": null,
+      "zb_status": "catch-all",
+      "zb_sub": ""
+    },
+    {
+      "sheet_row": 93,
+      "company": "Cyr Drilling International",
+      "name": "Todd Cyr",
+      "existing_email": "todd@cyrdrilling.com",
+      "domain": "",
+      "action": "zb-uncertain",
+      "reason": null,
+      "zb_status": "",
+      "zb_sub": ""
     }
   ]
 }
